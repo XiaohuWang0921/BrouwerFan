@@ -109,32 +109,26 @@ pathIsLongestPath α A isPath u _ = isPath _
 
 -- Other properties of SFBS
 
-Detachable : SFBS ℓ → Set ℓ
+Detachable ClEx ClRes IsTree Infinite IsBar IsUniformBar Convex Coconvex :
+  SFBS ℓ → Set ℓ
+IsCSet : SFBS ℓ → Set (Level.suc ℓ)
+
 Detachable = Decidable
 
-IsCSet : SFBS ℓ → Set (Level.suc ℓ)
 IsCSet A = ∃[ D ] Detachable D × A ≐ cl D
 
-ClEx : SFBS ℓ → Set ℓ
 ClEx A = ∀ u w → u ∈ A → u List.++ w ∈ A
 
-ClRes : SFBS ℓ → Set ℓ
 ClRes A = ∀ u w → u List.++ w ∈ A → u ∈ A
 
-IsTree : SFBS ℓ → Set ℓ
 IsTree = Detachable ∩ ClRes
 
-Infinite : SFBS ℓ → Set ℓ
 Infinite A = ∀ n → ∃[ u ] ∣ u ∣ ≡ n × u ∈ A
 
-IsBar : SFBS ℓ → Set ℓ
 IsBar A = ∀ α → ∃[ n ] resIBS α n ∈ A
 
-IsUniformBar : SFBS ℓ → Set ℓ
 IsUniformBar A = ∃[ N ] ∀ α → ∃[ n ] n ℕ.≤ N × resIBS α n ∈ A
 
-Convex : SFBS ℓ → Set ℓ
 Convex A = ∀ u v w → u ∈ A → w ∈ A → u ≺ v → v ≺ w → v ∈ A
 
-Coconvex : SFBS ℓ → Set ℓ
 Coconvex A = Convex (∁ A)
