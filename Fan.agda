@@ -20,6 +20,7 @@ open import Data.Product as Product
 open import Data.Sum as Sum
 open import Level
 open import Function.Bundles
+open import Relation.Nullary
 
 --------------------------------------------------------
 -- Section 25.2 Basic concepts and notations
@@ -123,7 +124,7 @@ IsCSet A = ∃[ D ] Detachable D × A ≐ cl D
 
 ClEx A = ∀ u w → u ∈ A → u List.++ w ∈ A
 
-ClRes A = ∀ u w → u List.++ w ∈ A → u ∈ A
+ClRes A = ∀ u n n≤∣u∣ → u ∈ A → resFBS u n n≤∣u∣ ∈ A
 
 IsTree = Detachable ∩ ClRes
 
@@ -143,13 +144,11 @@ Coconvex A = Convex (∁ A)
 WKL : (ℓ : Level) → Set (Level.suc ℓ)
 WKL ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ α ] IsPath α S
 
-lem25-1-a→b : (S : SFBS ℓ) → IsTree S →
-  Infinite S → ∀ α → IsLongestPath α S → IsPath α S
-lem25-1-a→b S (dec , clRes) inf α lp n with inf n
-... | u , ∣u∣≡n , u∈S rewrite sym ∣u∣≡n = lp u u∈S
+lem25-1 : (S : SFBS ℓ) → IsTree S →
+  Infinite S ⇔ ∀ α → IsLongestPath α S → IsPath α S
+lem25-1 S (dec , clRes) = mk⇔ a→b {!!}
+  where
+    a→b : Infinite S → ∀ α → IsLongestPath α S → IsPath α S
+    a→b inf α lp n with inf n
+    ... | u , ∣u∣≡n , u∈S rewrite sym ∣u∣≡n = lp u u∈S
 
-lem25-1-b→a : (S : SFBS ℓ) → IsTree S →
-  (∀ α → IsLongestPath α S → IsPath α S) → Infinite S
-lem25-1-b→a S (dec , clRes) assm 0 = ϕ , refl , {!!}
-lem25-1-b→a S (dec , clRes) assm (suc n) with lem25-1-b→a S (dec , clRes) assm n
-... | (u , ∣u∣≡n , u∈S) = {!!} , {!!} , {!!}
