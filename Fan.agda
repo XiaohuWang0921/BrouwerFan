@@ -19,6 +19,10 @@ open import Data.Unit using (⊤; tt)
 open import Data.Product as Product
 open import Data.Sum as Sum
 open import Level
+open import Function.Bundles
+
+--------------------------------------------------------
+-- Section 25.2 Basic concepts and notations
 
 pattern 0b = false
 pattern 1b = true
@@ -132,3 +136,20 @@ IsUniformBar A = ∃[ N ] ∀ α → ∃[ n ] n ℕ.≤ N × resIBS α n ∈ A
 Convex A = ∀ u v w → u ∈ A → w ∈ A → u ≺ v → v ≺ w → v ∈ A
 
 Coconvex A = Convex (∁ A)
+
+-----------------------------------------------------------
+-- Section 25.3 Weak König Lemma
+
+WKL : (ℓ : Level) → Set (Level.suc ℓ)
+WKL ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ α ] IsPath α S
+
+lem25-1-a→b : (S : SFBS ℓ) → IsTree S →
+  Infinite S → ∀ α → IsLongestPath α S → IsPath α S
+lem25-1-a→b S (dec , clRes) inf α lp n with inf n
+... | u , ∣u∣≡n , u∈S rewrite sym ∣u∣≡n = lp u u∈S
+
+lem25-1-b→a : (S : SFBS ℓ) → IsTree S →
+  (∀ α → IsLongestPath α S → IsPath α S) → Infinite S
+lem25-1-b→a S (dec , clRes) assm 0 = ϕ , refl , {!!}
+lem25-1-b→a S (dec , clRes) assm (suc n) with lem25-1-b→a S (dec , clRes) assm n
+... | (u , ∣u∣≡n , u∈S) = {!!} , {!!} , {!!}
