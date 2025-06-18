@@ -17,11 +17,14 @@ open import Data.Nat.Properties as ℕᵖ
 open import Data.Empty using (⊥; ⊥-elim)
 open import Data.Unit using (⊤; tt)
 open import Data.Product as Product
+open import Data.Product.Properties as Productᵖ
 open import Data.Sum as Sum
 open import Level
 open import Function.Bundles
 open import Relation.Nullary
 open import Function.Base
+
+open ≡-Reasoning
 
 --------------------------------------------------------
 -- Section 25.2 Basic concepts and notations
@@ -126,7 +129,7 @@ ClRes A = ∀ u n .n≤∣u∣ → u ∈ A → resFBS u n n≤∣u∣ ∈ A
 
 IsTree = Detachable ∩ ClRes
 
-Infinite A = ∀ n → ∃[ u ] ∣ u ∣ ≡ n × u ∈ A
+Infinite A = ∀ n → ∃[ u ] u ∈ A × ∣ u ∣ ≡ n
 
 IsBar A = ∀ α → ∃[ n ] resIBS α n ∈ A
 
@@ -165,7 +168,7 @@ decFixLen dec (suc n) with decFixLen (dec ∘ (0b ∷_)) n
 
 resFBS-++ : ∀ u v →
   resFBS (u List.++ v) ∣ u ∣
-    (resp (∣ u ∣ ℕ.≤_) (sym (length-++ u)) (m≤m+n _ _)) ≡
+    (subst (∣ u ∣ ℕ.≤_) (sym (length-++ u)) (m≤m+n _ _)) ≡
   u
 resFBS-++ ϕ _ = refl
 resFBS-++ (x ∷ u) v = cong (x ∷_) (resFBS-++ u v)
@@ -174,28 +177,28 @@ resIBS-++ : ∀ u α → resIBS (u Stream.++ α) ∣ u ∣ ≡ u
 resIBS-++ ϕ _ = refl
 resIBS-++ (x ∷ u) α = cong (x ∷_) (resIBS-++ u α)
 
-resFBS-idem : ∀ u n m .n≤∣u∣ .m≤n →
-  resFBS (resFBS u n n≤∣u∣) m (resp (m ℕ.≤_) (sym (∣resFBS∣ u n n≤∣u∣)) m≤n) ≡
-  resFBS u m (ℕᵖ.≤-trans m≤n n≤∣u∣)
+resFBS-idem : ∀ u n m .n≤∣u∣ .m≤∣res-n∣ →
+  resFBS (resFBS u n n≤∣u∣) m m≤∣res-n∣ ≡
+  resFBS u m (ℕᵖ.≤-trans (subst (m ℕ.≤_) (∣resFBS∣ u n n≤∣u∣) m≤∣res-n∣) n≤∣u∣)
 resFBS-idem _ _ 0 _ _ = refl
-resFBS-idem (x ∷ u) (suc n) (suc m) sn≤∣x∷u∣ sm≤sn =
-  cong (x ∷_) (resFBS-idem u n m (≤-pred sn≤∣x∷u∣) (≤-pred sm≤sn))
+resFBS-idem (x ∷ u) (suc n) (suc m) sn≤∣x∷u∣ sm≤∣res-sn∣ =
+  cong (x ∷_) (resFBS-idem u n m (≤-pred sn≤∣x∷u∣) (≤-pred sm≤∣res-sn∣))
 
-resIBS-idem : ∀ α n m .m≤∣resIBS-n∣ →
-  resFBS (resIBS α n) m m≤∣resIBS-n∣ ≡ resIBS α m
+resIBS-idem : ∀ α n m .m≤∣res-n∣ →
+  resFBS (resIBS α n) m m≤∣res-n∣ ≡ resIBS α m
 resIBS-idem α _ 0 _ = refl
-resIBS-idem α (suc n) (suc m) sm≤∣resIBS-sn∣ =
+resIBS-idem α (suc n) (suc m) sm≤∣res-sn∣ =
   let x = Stream.head α
       β = Stream.tail α
-  in cong (x ∷_) (resIBS-idem β n m (≤-pred sm≤∣resIBS-sn∣))
+  in cong (x ∷_) (resIBS-idem β n m (≤-pred sm≤∣res-sn∣))
 
 lem25-1 : (S : SFBS ℓ) → IsTree S →
   Infinite S ⇔ ∀ α → IsLongestPath α S → IsPath α S
-lem25-1 S (dec , clRes) = mk⇔ a→b {!!}
+lem25-1 S (dec , clRes) = mk⇔ a→b b→a
   where
     a→b : Infinite S → ∀ α → IsLongestPath α S → IsPath α S
     a→b inf α lp n with inf n
-    ... | u , ∣u∣≡n , u∈S rewrite sym ∣u∣≡n = lp u u∈S
+    ... | u , u∈S , ∣u∣≡n rewrite sym ∣u∣≡n = lp u u∈S
 
     boundLen : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∀ u → u ∈ S → ∣ u ∣ ℕ.< n
     boundLen n ∄n u u∈S with ∣ u ∣ ℕ.<? n
@@ -210,11 +213,30 @@ lem25-1 S (dec , clRes) = mk⇔ a→b {!!}
       ∄0 (resFBS u 0 z≤n , clRes u 0 z≤n u∈S , refl)
     maxLen (suc n) ∄sn with decFixLen dec n
     ... | yes (u , u∈S , ∣u∣≡n) = inj₂ (u , u∈S , λ v v∈S →
-      resp (∣ v ∣ ℕ.≤_) (sym ∣u∣≡n) (≤-pred (boundLen (ℕ.suc n) ∄sn v v∈S)))
+      subst (∣ v ∣ ℕ.≤_) (sym ∣u∣≡n) (≤-pred (boundLen (ℕ.suc n) ∄sn v v∈S)))
     ... | no ∄n = maxLen n ∄n
 
     LP : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ α ] IsLongestPath α S
     LP n ∄n with maxLen n ∄n
     ... | inj₁ S≐∅ = repeat 0b , λ u u∈S → ⊥-elim (S≐∅ (u , u∈S))
-    ... | inj₂ (u , u∈S , bound) = u Stream.++ repeat 1b , λ v v∈S →
-      {!!}
+    ... | inj₂ (u , u∈S , bound) =
+      let α = u Stream.++ repeat 1b in α , λ v v∈S →
+      let
+        leq = bound v v∈S
+        eq = begin
+          resFBS u (∣ v ∣) leq ≡˘⟨
+            cong {A = ∃[ w ] ∣ v ∣ ℕ.≤ ∣ w ∣} (λ (w , ∣v∣≤∣w∣) → resFBS w _ ∣v∣≤∣w∣)
+              {x = resIBS α ∣ u ∣ , subst (∣ v ∣ ℕ.≤_) (sym (∣resIBS∣ α ∣ u ∣)) leq} {y = u , leq}
+              (Σ-≡,≡→≡ ((resIBS-++ u (repeat 1b)) , ℕᵖ.≤-irrelevant _ _))
+          ⟩ resFBS (resIBS α ∣ u ∣) (∣ v ∣)
+            (subst (∣ v ∣ ℕ.≤_) (sym (∣resIBS∣ α ∣ u ∣)) leq) ≡⟨
+            resIBS-idem α ∣ u ∣ ∣ v ∣ (subst (∣ v ∣ ℕ.≤_)
+              (sym (∣resIBS∣ α ∣ u ∣)) leq)
+          ⟩ resIBS α ∣ v ∣ ∎
+      in subst S eq (clRes u ∣ v ∣ (bound v v∈S) u∈S)
+
+    b→a : (∀ α → IsLongestPath α S → IsPath α S) → Infinite S
+    b→a assm n with decFixLen dec n
+    ... | yes ∃n = ∃n
+    ... | no ∄n with LP n ∄n
+    ... | (α , lp) = resIBS α n , assm α lp n , ∣resIBS∣ α n
