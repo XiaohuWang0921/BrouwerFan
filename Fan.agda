@@ -14,27 +14,25 @@ open import Data.Bool as Bool
 open import Data.Bool.Properties as Boolᵖ
 open import Data.Nat as ℕ
 open import Data.Nat.Properties as ℕᵖ
-open import Data.Empty using (⊥)
+open import Data.Empty using (⊥; ⊥-elim)
 open import Data.Unit using (⊤; tt)
 open import Data.Product as Product
 open import Data.Sum as Sum
 open import Level
 open import Function.Bundles
 open import Relation.Nullary
+open import Function.Base
 
 --------------------------------------------------------
 -- Section 25.2 Basic concepts and notations
 
 pattern 0b = false
 pattern 1b = true
+pattern ϕ = []
 
 -- Finite binary sequences
 FBS : Set
 FBS = List Bool
-
--- Empty sequence
-ϕ : FBS
-ϕ = []
 
 -- Infinite binary sequences
 IBS : Set
@@ -47,25 +45,25 @@ IBS = Stream Bool
 -- Correspond to the N set and the E set
 -- TODO: rewrite using original def?
 N : FBS → Set
-N [] = ⊥
-N (0b ∷ []) = ⊤
+N ϕ = ⊥
+N (0b ∷ ϕ) = ⊤
 N (0b ∷ u) = N u
 N (1b ∷ _) = ⊥
 
 E : FBS → Set
-E [] = ⊥
+E ϕ = ⊥
 E (0b ∷ _) = ⊥
-E (1b ∷ []) = ⊤
+E (1b ∷ ϕ) = ⊤
 E (1b ∷ u) = E u
 
 -- Restrictions
 
-resFBS : ∀ (w : FBS) n → n ℕ.≤ ∣ w ∣ → FBS
-resFBS _ zero _ = []
+resFBS : ∀ (w : FBS) n → .(n ℕ.≤ ∣ w ∣) → FBS
+resFBS _ 0 _ = ϕ
 resFBS (x ∷ w) (suc n) le = x ∷ resFBS w n (≤-pred le)
 
 resIBS : IBS → ℕ → FBS
-resIBS α zero = []
+resIBS α 0 = ϕ
 resIBS α (suc n) = Stream.head α ∷ resIBS (Stream.tail α) n
 
 -- Lexicographical ordering
@@ -124,7 +122,7 @@ IsCSet A = ∃[ D ] Detachable D × A ≐ cl D
 
 ClEx A = ∀ u w → u ∈ A → u List.++ w ∈ A
 
-ClRes A = ∀ u n n≤∣u∣ → u ∈ A → resFBS u n n≤∣u∣ ∈ A
+ClRes A = ∀ u n .n≤∣u∣ → u ∈ A → resFBS u n n≤∣u∣ ∈ A
 
 IsTree = Detachable ∩ ClRes
 
@@ -144,6 +142,53 @@ Coconvex A = Convex (∁ A)
 WKL : (ℓ : Level) → Set (Level.suc ℓ)
 WKL ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ α ] IsPath α S
 
+decFixLen : {A : SFBS ℓ} → Detachable A → ∀ n → Dec (∃[ u ] u ∈ A × ∣ u ∣ ≡ n)
+decFixLen dec 0 with dec ϕ
+... | yes ϕ∈A = yes (ϕ , ϕ∈A , refl)
+... | no ϕ∉A = no (λ where
+  (ϕ , ϕ∈A , _) → ϕ∉A ϕ∈A)
+decFixLen dec (suc n) with decFixLen (dec ∘ (0b ∷_)) n
+... | yes (u , 0b∷u∈A , ∣u∣≡n) = yes (0b ∷ u , 0b∷u∈A , cong ℕ.suc ∣u∣≡n)
+... | no ∄0b with decFixLen (dec ∘ (1b ∷_)) n
+... | yes (u , 1b∷u∈A , ∣u∣≡n) = yes (1b ∷ u , 1b∷u∈A , cong ℕ.suc ∣u∣≡n)
+... | no ∄1b = no (λ where
+  (0b ∷ u , 0b∷u∈A , ∣0b∷u∣≡sn) → ∄0b (u , 0b∷u∈A , suc-injective ∣0b∷u∣≡sn)
+  (1b ∷ u , 1b∷u∈A , ∣1b∷u∣≡sn) → ∄1b (u , 1b∷u∈A , suc-injective ∣1b∷u∣≡sn))
+
+∣resFBS∣ : ∀ u n .n≤∣u∣ → ∣ resFBS u n n≤∣u∣ ∣ ≡ n
+∣resFBS∣ _ 0 _ = refl
+∣resFBS∣ (x ∷ u) (suc n) sn≤∣x∷u∣ = cong ℕ.suc (∣resFBS∣ u n (≤-pred sn≤∣x∷u∣))
+
+∣resIBS∣ : ∀ α n → ∣ resIBS α n ∣ ≡ n
+∣resIBS∣ α 0 = refl
+∣resIBS∣ α (suc n) = cong ℕ.suc (∣resIBS∣ (Stream.tail α) n)
+
+resFBS-++ : ∀ u v →
+  resFBS (u List.++ v) ∣ u ∣
+    (resp (∣ u ∣ ℕ.≤_) (sym (length-++ u)) (m≤m+n _ _)) ≡
+  u
+resFBS-++ ϕ _ = refl
+resFBS-++ (x ∷ u) v = cong (x ∷_) (resFBS-++ u v)
+
+resIBS-++ : ∀ u α → resIBS (u Stream.++ α) ∣ u ∣ ≡ u
+resIBS-++ ϕ _ = refl
+resIBS-++ (x ∷ u) α = cong (x ∷_) (resIBS-++ u α)
+
+resFBS-idem : ∀ u n m .n≤∣u∣ .m≤n →
+  resFBS (resFBS u n n≤∣u∣) m (resp (m ℕ.≤_) (sym (∣resFBS∣ u n n≤∣u∣)) m≤n) ≡
+  resFBS u m (ℕᵖ.≤-trans m≤n n≤∣u∣)
+resFBS-idem _ _ 0 _ _ = refl
+resFBS-idem (x ∷ u) (suc n) (suc m) sn≤∣x∷u∣ sm≤sn =
+  cong (x ∷_) (resFBS-idem u n m (≤-pred sn≤∣x∷u∣) (≤-pred sm≤sn))
+
+resIBS-idem : ∀ α n m .m≤∣resIBS-n∣ →
+  resFBS (resIBS α n) m m≤∣resIBS-n∣ ≡ resIBS α m
+resIBS-idem α _ 0 _ = refl
+resIBS-idem α (suc n) (suc m) sm≤∣resIBS-sn∣ =
+  let x = Stream.head α
+      β = Stream.tail α
+  in cong (x ∷_) (resIBS-idem β n m (≤-pred sm≤∣resIBS-sn∣))
+
 lem25-1 : (S : SFBS ℓ) → IsTree S →
   Infinite S ⇔ ∀ α → IsLongestPath α S → IsPath α S
 lem25-1 S (dec , clRes) = mk⇔ a→b {!!}
@@ -152,3 +197,24 @@ lem25-1 S (dec , clRes) = mk⇔ a→b {!!}
     a→b inf α lp n with inf n
     ... | u , ∣u∣≡n , u∈S rewrite sym ∣u∣≡n = lp u u∈S
 
+    boundLen : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∀ u → u ∈ S → ∣ u ∣ ℕ.< n
+    boundLen n ∄n u u∈S with ∣ u ∣ ℕ.<? n
+    ... | yes ∣u∣<n = ∣u∣<n
+    ... | no ∣u∣≮n = let ∣u∣≥n = ≮⇒≥ ∣u∣≮n in
+      ⊥-elim (∄n (resFBS u n ∣u∣≥n , clRes u n ∣u∣≥n u∈S , ∣resFBS∣ u n ∣u∣≥n))
+    
+    maxLen : ∀ n →
+      ∄[ u ] u ∈ S × ∣ u ∣ ≡ n →
+      ∄[ u ] u ∈ S ⊎ ∃[ u ] u ∈ S × ∀ v → v ∈ S → ∣ v ∣ ℕ.≤ ∣ u ∣
+    maxLen 0 ∄0 = inj₁ λ (u , u∈S) →
+      ∄0 (resFBS u 0 z≤n , clRes u 0 z≤n u∈S , refl)
+    maxLen (suc n) ∄sn with decFixLen dec n
+    ... | yes (u , u∈S , ∣u∣≡n) = inj₂ (u , u∈S , λ v v∈S →
+      resp (∣ v ∣ ℕ.≤_) (sym ∣u∣≡n) (≤-pred (boundLen (ℕ.suc n) ∄sn v v∈S)))
+    ... | no ∄n = maxLen n ∄n
+
+    LP : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ α ] IsLongestPath α S
+    LP n ∄n with maxLen n ∄n
+    ... | inj₁ S≐∅ = repeat 0b , λ u u∈S → ⊥-elim (S≐∅ (u , u∈S))
+    ... | inj₂ (u , u∈S , bound) = u Stream.++ repeat 1b , λ v v∈S →
+      {!!}
