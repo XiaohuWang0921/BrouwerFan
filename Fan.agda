@@ -243,3 +243,9 @@ lem25-1 S (dec , clRes) = mk⇔ a→b b→a
 
 LPL : (ℓ : Level) → Set (Level.suc ℓ)
 LPL ℓ = (S : SFBS ℓ) → IsTree S → ∃[ α ] IsLongestPath α S
+
+L[_] : SFBS ℓ → SFBS ℓ
+L[ A ] = λ u → u ∈ A × (∀ w → ∣ u ∣ ℕ.< ∣ w ∣ ⊎ u ≺ w → w ∉ A) ⊎ ϕ ∉ A × u ≡ ϕ
+
+_′ : SFBS ℓ → SFBS ℓ
+A ′ = λ u → u ∈ A ⊎ u ≡ ϕ ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
