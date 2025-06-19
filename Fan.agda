@@ -240,3 +240,6 @@ lem25-1 S (dec , clRes) = mk⇔ a→b b→a
     ... | yes ∃n = ∃n
     ... | no ∄n with LP n ∄n
     ... | (α , lp) = resIBS α n , assm α lp n , ∣resIBS∣ α n
+
+LPL : (ℓ : Level) → Set (Level.suc ℓ)
+LPL ℓ = (S : SFBS ℓ) → IsTree S → ∃[ α ] IsLongestPath α S
