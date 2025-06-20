@@ -63,7 +63,7 @@ E (1b ∷ u) = E u
 
 resFBS : ∀ (w : FBS) n → .(n ℕ.≤ ∣ w ∣) → FBS
 resFBS _ 0 _ = ϕ
-resFBS (x ∷ w) (suc n) le = x ∷ resFBS w n (≤-pred le)
+resFBS (b ∷ w) (suc n) le = b ∷ resFBS w n (≤-pred le)
 
 resIBS : IBS → ℕ → FBS
 resIBS α 0 = ϕ
@@ -160,7 +160,7 @@ decFixLen dec (suc n) with decFixLen (dec ∘ (0b ∷_)) n
 
 ∣resFBS∣ : ∀ u n .n≤∣u∣ → ∣ resFBS u n n≤∣u∣ ∣ ≡ n
 ∣resFBS∣ _ 0 _ = refl
-∣resFBS∣ (x ∷ u) (suc n) sn≤∣x∷u∣ = cong ℕ.suc (∣resFBS∣ u n (≤-pred sn≤∣x∷u∣))
+∣resFBS∣ (b ∷ u) (suc n) sn≤∣b∷u∣ = cong ℕ.suc (∣resFBS∣ u n (≤-pred sn≤∣b∷u∣))
 
 ∣resIBS∣ : ∀ α n → ∣ resIBS α n ∣ ≡ n
 ∣resIBS∣ α 0 = refl
@@ -171,26 +171,26 @@ resFBS-++ : ∀ u v →
     (subst (∣ u ∣ ℕ.≤_) (sym (length-++ u)) (m≤m+n _ _)) ≡
   u
 resFBS-++ ϕ _ = refl
-resFBS-++ (x ∷ u) v = cong (x ∷_) (resFBS-++ u v)
+resFBS-++ (b ∷ u) v = cong (b ∷_) (resFBS-++ u v)
 
 resIBS-++ : ∀ u α → resIBS (u Stream.++ α) ∣ u ∣ ≡ u
 resIBS-++ ϕ _ = refl
-resIBS-++ (x ∷ u) α = cong (x ∷_) (resIBS-++ u α)
+resIBS-++ (b ∷ u) α = cong (b ∷_) (resIBS-++ u α)
 
 resFBS-idem : ∀ u n m .n≤∣u∣ .m≤∣res-n∣ →
   resFBS (resFBS u n n≤∣u∣) m m≤∣res-n∣ ≡
   resFBS u m (ℕᵖ.≤-trans (subst (m ℕ.≤_) (∣resFBS∣ u n n≤∣u∣) m≤∣res-n∣) n≤∣u∣)
 resFBS-idem _ _ 0 _ _ = refl
-resFBS-idem (x ∷ u) (suc n) (suc m) sn≤∣x∷u∣ sm≤∣res-sn∣ =
-  cong (x ∷_) (resFBS-idem u n m (≤-pred sn≤∣x∷u∣) (≤-pred sm≤∣res-sn∣))
+resFBS-idem (b ∷ u) (suc n) (suc m) sn≤∣b∷u∣ sm≤∣res-sn∣ =
+  cong (b ∷_) (resFBS-idem u n m (≤-pred sn≤∣b∷u∣) (≤-pred sm≤∣res-sn∣))
 
 resIBS-idem : ∀ α n m .m≤∣res-n∣ →
   resFBS (resIBS α n) m m≤∣res-n∣ ≡ resIBS α m
 resIBS-idem α _ 0 _ = refl
 resIBS-idem α (suc n) (suc m) sm≤∣res-sn∣ =
-  let x = Stream.head α
+  let b = Stream.head α
       β = Stream.tail α
-  in cong (x ∷_) (resIBS-idem β n m (≤-pred sm≤∣res-sn∣))
+  in cong (b ∷_) (resIBS-idem β n m (≤-pred sm≤∣res-sn∣))
 
 lem25-1 : (S : SFBS ℓ) → IsTree S →
   Infinite S ⇔ ∀ α → IsLongestPath α S → IsPath α S
@@ -249,3 +249,26 @@ L[ A ] = λ u → u ∈ A × (∀ w → ∣ u ∣ ℕ.< ∣ w ∣ ⊎ u ≺ w �
 
 _′ : SFBS ℓ → SFBS ℓ
 A ′ = λ u → u ∈ A ⊎ u ≡ ϕ ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
+
+module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
+  dec = t .proj₁
+  clRes = t .proj₂
+
+  a : S ⊆ S ′
+  a = inj₁
+
+  b : Infinite S → S ≐ S ′
+  b inf = a , (λ where
+    (inj₁ u∈S) → u∈S
+    (inj₂ (inj₁ refl)) → inf 0 |> λ where
+      (ϕ , ϕ∈S , _) → ϕ∈S
+    (inj₂ (inj₂ (v , _ , inj₁ (_ , v-max) , _ , _))) →
+      let (x , x∈S , ∣x∣≡s∣v∣) = inf (ℕ.suc ∣ v ∣)
+      in ⊥-elim
+         (v-max x (inj₁ (resp (∣ v ∣ ℕ.<_) (sym ∣x∣≡s∣v∣) (n<1+n _))) x∈S)
+    (inj₂ (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , _))) →
+      ⊥-elim (ϕ∉S (inf 0 |> λ where
+        (ϕ , ϕ∈S , _) → ϕ∈S)))
+
+  c : Convex S → Convex (S ′)
+  c = {!!}
