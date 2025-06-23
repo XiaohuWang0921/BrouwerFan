@@ -151,12 +151,12 @@ decFixLen dec 0 with dec ϕ
 ... | no ϕ∉A = no (λ where
   (ϕ , ϕ∈A , _) → ϕ∉A ϕ∈A)
 decFixLen dec (suc n) with decFixLen (dec ∘ (0b ∷_)) n
-... | yes (u , 0b∷u∈A , ∣u∣≡n) = yes (0b ∷ u , 0b∷u∈A , cong ℕ.suc ∣u∣≡n)
+... | yes (u , 0∷u∈A , ∣u∣≡n) = yes (0b ∷ u , 0∷u∈A , cong ℕ.suc ∣u∣≡n)
 ... | no ∄0b with decFixLen (dec ∘ (1b ∷_)) n
-... | yes (u , 1b∷u∈A , ∣u∣≡n) = yes (1b ∷ u , 1b∷u∈A , cong ℕ.suc ∣u∣≡n)
+... | yes (u , 1∷u∈A , ∣u∣≡n) = yes (1b ∷ u , 1∷u∈A , cong ℕ.suc ∣u∣≡n)
 ... | no ∄1b = no (λ where
-  (0b ∷ u , 0b∷u∈A , ∣0b∷u∣≡sn) → ∄0b (u , 0b∷u∈A , suc-injective ∣0b∷u∣≡sn)
-  (1b ∷ u , 1b∷u∈A , ∣1b∷u∣≡sn) → ∄1b (u , 1b∷u∈A , suc-injective ∣1b∷u∣≡sn))
+  (0b ∷ u , 0∷u∈A , ∣0∷u∣≡sn) → ∄0b (u , 0∷u∈A , suc-injective ∣0∷u∣≡sn)
+  (1b ∷ u , 1∷u∈A , ∣1∷u∣≡sn) → ∄1b (u , 1∷u∈A , suc-injective ∣1∷u∣≡sn))
 
 ∣resFBS∣ : ∀ u n .n≤∣u∣ → ∣ resFBS u n n≤∣u∣ ∣ ≡ n
 ∣resFBS∣ _ 0 _ = refl
@@ -250,6 +250,13 @@ L[ A ] = λ u → u ∈ A × (∀ w → ∣ u ∣ ℕ.< ∣ w ∣ ⊎ u ≺ w �
 _′ : SFBS ℓ → SFBS ℓ
 A ′ = λ u → u ∈ A ⊎ u ≡ ϕ ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
 
+N-min : ∀ u v → v ∈ N → ¬ u ≺ v
+N-min (0b ∷ ϕ) (0b ∷ ϕ) _ (_ , this ())
+N-min (0b ∷ ϕ) (0b ∷ ϕ) _ (_ , next _ (base ()))
+N-min (0b ∷ u) (0b ∷ v) v∈N (∣u∣≡∣v∣ , this ())
+N-min (0b ∷ u) (0b ∷ v@(_ ∷ _)) v∈N (∣u∣≡∣v∣ , next _ u≺v) =
+  N-min u v v∈N (suc-injective ∣u∣≡∣v∣ , u≺v)
+
 module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
   dec = t .proj₁
   clRes = t .proj₂
@@ -263,7 +270,7 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
     (inj₂ (inj₁ refl)) → inf 0 |> λ where
       (ϕ , ϕ∈S , _) → ϕ∈S
     (inj₂ (inj₂ (v , _ , inj₁ (_ , v-max) , _ , _))) →
-      let (x , x∈S , ∣x∣≡s∣v∣) = inf (ℕ.suc ∣ v ∣)
+      let x , x∈S , ∣x∣≡s∣v∣ = inf (ℕ.suc ∣ v ∣)
       in ⊥-elim
          (v-max x (inj₁ (resp (∣ v ∣ ℕ.<_) (sym ∣x∣≡s∣v∣) (n<1+n _))) x∈S)
     (inj₂ (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , _))) →
@@ -271,4 +278,11 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
         (ϕ , ϕ∈S , _) → ϕ∈S)))
 
   c : Convex S → Convex (S ′)
-  c = {!!}
+  c conv u v w (inj₁ u∈S) (inj₁ w∈S) u≺v v≺w  = inj₁ (conv u v w u∈S w∈S u≺v v≺w)
+  c conv u v .ϕ (inj₁ u∈S) (inj₂ (inj₁ refl)) (∣u∣≡∣v∣ , _) (∣v∣≡0 , _)
+    with v | ∣v∣≡0
+  c conv u ϕ .ϕ (inj₁ u∈S) (inj₂ (inj₁ refl)) (∣u∣≡0 , _) (refl , _) | ϕ | refl
+    with u | ∣u∣≡0
+  c conv ϕ ϕ .ϕ (inj₁ ϕ∈S) (inj₂ (inj₁ refl)) (refl , _) (refl , _) | ϕ | refl | ϕ | refl = inj₁ ϕ∈S
+  c conv u v .(v' List.++ w') (inj₁ u∈S) (inj₂ (inj₂ (v' , w' , inj₁ (v'∈S , v'-max) , w'∈N , refl))) u≺v v≺v'++w' = {!v'-max!}
+  c conv u v .w' (inj₁ u∈S) (inj₂ (inj₂ (.ϕ , w' , inj₂ (ϕ∉S , refl) , w'∈N , refl))) u≺v v≺w' = ⊥-elim (ϕ∉S (t .proj₂ u ℕ.zero _ u∈S))
