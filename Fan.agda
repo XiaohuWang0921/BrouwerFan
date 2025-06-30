@@ -9,7 +9,8 @@ open import Codata.Guarded.Stream.Properties as Streamᵖ
 open import Relation.Unary
 open import Relation.Binary using (Rel; Trichotomous; Tri; tri<; tri≈; tri>)
 open import Relation.Binary.PropositionalEquality
-open import Data.List.Relation.Binary.Lex
+open import Data.List.Relation.Binary.Lex.Strict
+open import Data.List.Relation.Binary.Pointwise hiding (refl)
 open import Data.Bool as Bool
 open import Data.Bool.Properties as Boolᵖ
 open import Data.Nat as ℕ
@@ -246,14 +247,37 @@ LPL : (ℓ : Level) → Set (Level.suc ℓ)
 LPL ℓ = (S : SFBS ℓ) → IsTree S → ∃[ α ] IsLongestPath α S
 
 L[_] : SFBS ℓ → SFBS ℓ
-L[ A ] = λ u → u ∈ A × (∀ w → ∣ u ∣ ℕ.< ∣ w ∣ ⊎ u ≺ w → w ∉ A) ⊎ ϕ ∉ A × u ≡ ϕ
+L[ A ] = λ u → u ∈ A × (∀ w → u ⊏ w → w ∉ A) ⊎ ϕ ∉ A × u ≡ ϕ
 
 _′ : SFBS ℓ → SFBS ℓ
 A ′ = λ u → u ∈ A ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
 
-⊏-cmp : Trichotomous _≡_ _⊏_
-⊏-cmp = {!!}
-
+⊏-compare : Trichotomous _≡_ _⊏_
+⊏-compare u v with ℕ.<-cmp ∣ u ∣ ∣ v ∣
+... | tri< ∣u∣<∣v∣ ∣u∣≢∣v∣ ∣u∣≯∣v∣ =
+      tri< (inj₁ ∣u∣<∣v∣) (λ u≡v → ∣u∣≢∣v∣ (cong ∣_∣ u≡v)) λ where
+        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
+        (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ (sym ∣u∣≡∣v∣)
+... | tri> ∣u∣≮∣v∣ ∣u∣≢∣v∣ ∣u∣>∣v∣ =
+      flip (flip tri> λ u≡v → ∣u∣≢∣v∣ (cong ∣_∣ u≡v)) (inj₁ ∣u∣>∣v∣) λ where
+        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
+        (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ ∣u∣≡∣v∣
+... | tri≈ ∣u∣≮∣v∣ ∣u∣≡∣v∣ ∣u∣≯∣v∣ with <-compare sym Boolᵖ.<-cmp u v
+... | tri< u<v u≢v u≯v =
+      tri< (inj₂ (∣u∣≡∣v∣ , u<v)) (u≢v ∘ ≡⇒Pointwise-≡) λ where
+        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
+        (inj₂ (_ , u>v)) → u≯v u>v
+... | tri> u≮v u≢v u>v =
+      flip (flip tri> (u≢v ∘ ≡⇒Pointwise-≡)) (inj₂ (sym ∣u∣≡∣v∣ , u>v)) λ where
+        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
+        (inj₂ (_ , u<v)) → u≮v u<v
+... | tri≈ u≮v u≡v u≯v =
+      flip tri≈ (Pointwise-≡⇒≡ u≡v) (λ where
+        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
+        (inj₂ (_ , u<v)) → u≮v u<v) λ where
+        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
+        (inj₂ (_ , u>v)) → u≯v u>v
+      
 module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
   dec = t .proj₁
   clRes = t .proj₂
@@ -272,5 +296,23 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
       ⊥-elim (ϕ∉S (inf 0 |> λ where
         (ϕ , ϕ∈S , _) → ϕ∈S)))
 
+  LS-unique : ∀ u v → u ∈ L[ S ] → v ∈ L[ S ] → u ≡ v
+  LS-unique u v (inj₁ (u∈S , u-max)) (inj₁ (v∈S , v-max)) with ⊏-compare u v
+  ... | tri< u⊏v _   _   = ⊥-elim (u-max v u⊏v v∈S)
+  ... | tri> u⋢v u≢v u⊐v = ⊥-elim (v-max u u⊐v u∈S)
+  ... | tri≈ _   u≡v _   = u≡v
+  LS-unique u v (inj₁ (u∈S , _)) (inj₂ (ϕ∉S , _)) =
+    ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
+  LS-unique u v (inj₂ (ϕ∉S , _)) (inj₁ (v∈S , _)) =
+    ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
+  LS-unique .ϕ .ϕ (inj₂ (_ , refl)) (inj₂ (_ , refl)) = refl
+
+  S′-sameLen : ∀ {u v} → u ∈ (S ′) → v ∈ (S ′) → ∣ u ∣ ≡ ∣ v ∣ → u ∈ S × v ∈ S
+  S′-sameLen (inj₁ u∈S) (inj₁ v∈S) _ = u∈S , v∈S
+  S′-sameLen (inj₁ u∈S) (inj₂ (w , [] , inj₁ (w∈S , _) , _ , refl)) ∣u∣≡∣w++ϕ∣
+    rewrite ++-identityʳ w = u∈S , w∈S
+  S′-sameLen {u} (inj₁ u∈S) (inj₂ (w , (_ ∷ _) , inj₁ (w∈S , w-max) , _ , refl)) ∣u∣≡∣w++0b∷x∣ =
+    ⊥-elim (w-max u (inj₁ {!!}) u∈S)
+  
   c : Convex S → Convex (S ′)
-  c = {!!}
+  c conv u v w u∈S′ w∈S′ u≺v v≺w = {!!}
