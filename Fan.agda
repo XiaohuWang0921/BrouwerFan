@@ -49,12 +49,12 @@ IBS = Stream Bool
 -- Correspond to the N set and the E set
 -- TODO: rewrite using original def?
 N : FBS → Set
-N ϕ = ⊥
+N ϕ = ⊤
 N (0b ∷ u) = N u
 N (1b ∷ _) = ⊥
 
 E : FBS → Set
-E ϕ = ⊥
+E ϕ = ⊤
 E (0b ∷ _) = ⊥
 E (1b ∷ u) = E u
 
@@ -263,21 +263,31 @@ A ′ = λ u → u ∈ A ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ 
         (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
         (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ ∣u∣≡∣v∣
 ... | tri≈ ∣u∣≮∣v∣ ∣u∣≡∣v∣ ∣u∣≯∣v∣ with <-compare sym Boolᵖ.<-cmp u v
-... | tri< u<v u≢v u≯v =
-      tri< (inj₂ (∣u∣≡∣v∣ , u<v)) (u≢v ∘ ≡⇒Pointwise-≡) λ where
+... | tri< u≺v u≢v u⊁v =
+      tri< (inj₂ (∣u∣≡∣v∣ , u≺v)) (u≢v ∘ ≡⇒Pointwise-≡) λ where
         (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
-        (inj₂ (_ , u>v)) → u≯v u>v
-... | tri> u≮v u≢v u>v =
-      flip (flip tri> (u≢v ∘ ≡⇒Pointwise-≡)) (inj₂ (sym ∣u∣≡∣v∣ , u>v)) λ where
+        (inj₂ (_ , u≻v)) → u⊁v u≻v
+... | tri> u⊀v u≢v u≻v =
+      flip (flip tri> (u≢v ∘ ≡⇒Pointwise-≡)) (inj₂ (sym ∣u∣≡∣v∣ , u≻v)) λ where
         (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
-        (inj₂ (_ , u<v)) → u≮v u<v
-... | tri≈ u≮v u≡v u≯v =
+        (inj₂ (_ , u≺v)) → u⊀v u≺v
+... | tri≈ u⊀v u≡v u⊁v =
       flip tri≈ (Pointwise-≡⇒≡ u≡v) (λ where
         (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
-        (inj₂ (_ , u<v)) → u≮v u<v) λ where
+        (inj₂ (_ , u≺v)) → u⊀v u≺v) λ where
         (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
-        (inj₂ (_ , u>v)) → u≯v u>v
+        (inj₂ (_ , u≻v)) → u⊁v u≻v
+
+N-sameLen : ∀ u v → u ∈ N → v ∈ N → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
+N-sameLen ϕ ϕ _ _ _ = refl
+N-sameLen (0b ∷ u) (0b ∷ v) u∈N v∈N eq =
+  cong (0b ∷_) (N-sameLen u v u∈N v∈N (suc-injective eq))
       
+E-sameLen : ∀ u v → u ∈ E → v ∈ E → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
+E-sameLen ϕ ϕ _ _ _ = refl
+E-sameLen (1b ∷ u) (1b ∷ v) u∈E v∈E eq =
+  cong (1b ∷_) (E-sameLen u v u∈E v∈E (suc-injective eq))
+
 module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
   dec = t .proj₁
   clRes = t .proj₂
@@ -307,12 +317,57 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
     ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
   LS-unique .ϕ .ϕ (inj₂ (_ , refl)) (inj₂ (_ , refl)) = refl
 
-  S′-sameLen : ∀ {u v} → u ∈ (S ′) → v ∈ (S ′) → ∣ u ∣ ≡ ∣ v ∣ → u ∈ S × v ∈ S
-  S′-sameLen (inj₁ u∈S) (inj₁ v∈S) _ = u∈S , v∈S
-  S′-sameLen (inj₁ u∈S) (inj₂ (w , [] , inj₁ (w∈S , _) , _ , refl)) ∣u∣≡∣w++ϕ∣
-    rewrite ++-identityʳ w = u∈S , w∈S
-  S′-sameLen {u} (inj₁ u∈S) (inj₂ (w , (_ ∷ _) , inj₁ (w∈S , w-max) , _ , refl)) ∣u∣≡∣w++0b∷x∣ =
-    ⊥-elim (w-max u (inj₁ {!!}) u∈S)
-  
+  S′-sameLen : ∀ {u v} → u ∈ (S ′) → v ∈ (S ′) → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v ⊎ u ∈ S × v ∈ S
+  S′-sameLen (inj₁ u∈S) (inj₁ v∈S) _ = inj₂ (u∈S , v∈S)
+  S′-sameLen {u} (inj₁ u∈S) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
+    ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
+    
+  S′-sameLen (inj₁ u∈S) (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) _
+    rewrite ++-identityʳ w = inj₂ (u∈S , w∈S)
+    
+  S′-sameLen {u} (inj₁ u∈S) (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) lenEq =
+    ⊥-elim
+      (w-max u (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) u∈S)
+    where
+      +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ u ∣
+      +-lenEq = sym (trans lenEq (length-++ w))
+
+  S′-sameLen {_} {v} (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₁ v∈S) _ =
+    ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
+
+  S′-sameLen (inj₂ (w , _ , inj₁ (w∈S , _) , _ , refl)) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
+    ⊥-elim (ϕ∉S (clRes w 0 z≤n w∈S))
+      
+  S′-sameLen (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₂ (y , _ , inj₁ (y∈S , _) , _ , refl)) _ =
+    ⊥-elim (ϕ∉S (clRes y 0 z≤n y∈S))
+
+  S′-sameLen (inj₂ (.ϕ , x , inj₂ (_ , refl) , x∈N , refl)) (inj₂ (.ϕ , z , inj₂ (_ , refl) , z∈N , refl)) lenEq =
+    inj₁ (N-sameLen x z x∈N z∈N lenEq)
+    
+  S′-sameLen (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) (inj₁ v∈S) _
+    rewrite ++-identityʳ w = inj₂ (w∈S , v∈S)
+
+  S′-sameLen {_} {v} (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) (inj₁ v∈S) lenEq =
+    ⊥-elim
+      (w-max v (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) v∈S)
+    where
+      +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ v ∣
+      +-lenEq = trans (sym (length-++ w)) lenEq
+
+  S′-sameLen (inj₂ (w , x , inj₁ (w∈S , w-max) , x∈N , refl)) (inj₂ (y , z , inj₁ (y∈S , y-max) , z∈N , refl)) lenEq with ⊏-compare w y
+  ... | tri< w⊏y _    _   = ⊥-elim (w-max y w⊏y y∈S)
+  ... | tri> _   _    w⊐y = ⊥-elim (y-max w w⊐y w∈S)
+  ... | tri≈ _   refl _   =
+    inj₁ (cong (w List.++_) (N-sameLen x z x∈N z∈N
+      (+-cancelˡ-≡ ∣ w ∣ _ _ +-lenEq)))
+    where
+      +-lenEq : ∣ w ∣ + ∣ x ∣ ≡ ∣ w ∣ + ∣ z ∣
+      +-lenEq =
+        trans
+          (sym (length-++ w))
+          (trans
+            lenEq
+            (length-++ w))
+
   c : Convex S → Convex (S ′)
   c conv u v w u∈S′ w∈S′ u≺v v≺w = {!!}
