@@ -200,7 +200,7 @@ lem25-1 S (dec , clRes) = mk⇔ a→b b→a
   where
     a→b : Infinite S → ∀ α → IsLongestPath α S → IsPath α S
     a→b inf α lp n with inf n
-    ... | u , u∈S , ∣u∣≡n rewrite sym ∣u∣≡n = lp u u∈S
+    ... | u , u∈S , refl = lp u u∈S
 
     boundLen : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∀ u → u ∈ S → ∣ u ∣ ℕ.< n
     boundLen n ∄n u u∈S with ∣ u ∣ ℕ.<? n
