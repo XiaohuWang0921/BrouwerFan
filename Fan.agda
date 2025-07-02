@@ -317,35 +317,40 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
     ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
   LS-unique .ϕ .ϕ (inj₂ (_ , refl)) (inj₂ (_ , refl)) = refl
 
+
+
+
+
   S′-sameLen : ∀ {u v} → u ∈ (S ′) → v ∈ (S ′) → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v ⊎ u ∈ S × v ∈ S
+  
+  -- Trivial positive cases: u, v ∈ S
   S′-sameLen (inj₁ u∈S) (inj₁ v∈S) _ = inj₂ (u∈S , v∈S)
-  S′-sameLen {u} (inj₁ u∈S) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
-    ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
-    
   S′-sameLen (inj₁ u∈S) (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) _
     rewrite ++-identityʳ w = inj₂ (u∈S , w∈S)
-    
+  S′-sameLen (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) (inj₁ v∈S) _
+    rewrite ++-identityʳ w = inj₂ (w∈S , v∈S)
+
+  -- Trivial contradictory cases: u ∈ S but ϕ ∉ S
+  S′-sameLen {u} (inj₁ u∈S) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
+    ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
+  S′-sameLen {_} {v} (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₁ v∈S) _ =
+    ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
+  S′-sameLen (inj₂ (w , _ , inj₁ (w∈S , _) , _ , refl)) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
+    ⊥-elim (ϕ∉S (clRes w 0 z≤n w∈S))
+  S′-sameLen (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₂ (y , _ , inj₁ (y∈S , _) , _ , refl)) _ =
+    ⊥-elim (ϕ∉S (clRes y 0 z≤n y∈S))
+
+  -- Trivial exception case: u ≡ v ≡ ϕ
+  S′-sameLen (inj₂ (.ϕ , x , inj₂ (_ , refl) , x∈N , refl)) (inj₂ (.ϕ , z , inj₂ (_ , refl) , z∈N , refl)) lenEq =
+    inj₁ (N-sameLen x z x∈N z∈N lenEq)
+
+  -- Advanced contradictory cases: u ∈ S, w ∈ S maximal, but w ⊏ u
   S′-sameLen {u} (inj₁ u∈S) (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) lenEq =
     ⊥-elim
       (w-max u (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) u∈S)
     where
       +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ u ∣
-      +-lenEq = sym (trans lenEq (length-++ w))
-
-  S′-sameLen {_} {v} (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₁ v∈S) _ =
-    ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
-
-  S′-sameLen (inj₂ (w , _ , inj₁ (w∈S , _) , _ , refl)) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
-    ⊥-elim (ϕ∉S (clRes w 0 z≤n w∈S))
-      
-  S′-sameLen (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₂ (y , _ , inj₁ (y∈S , _) , _ , refl)) _ =
-    ⊥-elim (ϕ∉S (clRes y 0 z≤n y∈S))
-
-  S′-sameLen (inj₂ (.ϕ , x , inj₂ (_ , refl) , x∈N , refl)) (inj₂ (.ϕ , z , inj₂ (_ , refl) , z∈N , refl)) lenEq =
-    inj₁ (N-sameLen x z x∈N z∈N lenEq)
-    
-  S′-sameLen (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) (inj₁ v∈S) _
-    rewrite ++-identityʳ w = inj₂ (w∈S , v∈S)
+      +-lenEq = sym (trans lenEq (length-++ w))    
 
   S′-sameLen {_} {v} (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) (inj₁ v∈S) lenEq =
     ⊥-elim
@@ -354,20 +359,18 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
       +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ v ∣
       +-lenEq = trans (sym (length-++ w)) lenEq
 
-  S′-sameLen (inj₂ (w , x , inj₁ (w∈S , w-max) , x∈N , refl)) (inj₂ (y , z , inj₁ (y∈S , y-max) , z∈N , refl)) lenEq with ⊏-compare w y
-  ... | tri< w⊏y _    _   = ⊥-elim (w-max y w⊏y y∈S)
-  ... | tri> _   _    w⊐y = ⊥-elim (y-max w w⊐y w∈S)
-  ... | tri≈ _   refl _   =
-    inj₁ (cong (w List.++_) (N-sameLen x z x∈N z∈N
-      (+-cancelˡ-≡ ∣ w ∣ _ _ +-lenEq)))
+  -- Most advanced case: u ≡ w ++ x, v ≡ y ++ z, w, y ∈ S maximal, x, z zeroes
+  S′-sameLen (inj₂ (w , x , w∈LS , x∈N , refl)) (inj₂ (y , z , y∈LS , z∈N , refl)) lenEq rewrite LS-unique w y w∈LS y∈LS =
+    inj₁ (cong (y List.++_) (N-sameLen x z x∈N z∈N
+      (+-cancelˡ-≡ ∣ y ∣ _ _ +-lenEq)))
     where
-      +-lenEq : ∣ w ∣ + ∣ x ∣ ≡ ∣ w ∣ + ∣ z ∣
+      +-lenEq : ∣ y ∣ + ∣ x ∣ ≡ ∣ y ∣ + ∣ z ∣
       +-lenEq =
         trans
-          (sym (length-++ w))
+          (sym (length-++ y))
           (trans
             lenEq
-            (length-++ w))
+            (length-++ y))
 
   c : Convex S → Convex (S ′)
   c conv u v w u∈S′ w∈S′ u≺v v≺w = {!!}
