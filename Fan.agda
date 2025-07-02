@@ -7,8 +7,8 @@ open import Data.List.Properties as Listᵖ
 open import Codata.Guarded.Stream as Stream
 open import Codata.Guarded.Stream.Properties as Streamᵖ
 open import Relation.Unary
-open import Relation.Binary using (Rel; Trichotomous; Tri; tri<; tri≈; tri>)
-open import Relation.Binary.PropositionalEquality
+open import Relation.Binary hiding (_⇔_; Decidable)
+open import Relation.Binary.PropositionalEquality as Eq
 open import Data.List.Relation.Binary.Lex.Strict
 open import Data.List.Relation.Binary.Pointwise hiding (refl)
 open import Data.Bool as Bool
@@ -75,6 +75,57 @@ u ≺ v = ∣ u ∣ ≡ ∣ v ∣ × Lex-< _≡_ Bool._<_ u v
 
 _⊏_ : Rel FBS 0ℓ
 u ⊏ v = ∣ u ∣ ℕ.< ∣ v ∣ ⊎ u ≺ v
+
+-- Properties of the above relations
+
+≺-irrefl : Irreflexive _≡_ _≺_
+≺-irrefl refl (_ , x<x) = <-irreflexive Boolᵖ.<-irrefl (≡⇒Pointwise-≡ refl) x<x
+
+≺-trans : Transitive _≺_
+≺-trans (∣u∣≡∣v∣ , u<v) (∣v∣≡∣w∣ , v<w) =
+  trans ∣u∣≡∣v∣ ∣v∣≡∣w∣ ,
+    <-transitive Eq.isEquivalence (resp₂ _) Boolᵖ.<-trans u<v v<w
+
+≺-asym : Asymmetric _≺_
+≺-asym = ≺-irrefl refl ∘₂ ≺-trans
+
+⊏-irrefl : Irreflexive _≡_ _⊏_
+⊏-irrefl refl (inj₁ ∣u∣<∣u∣) = ℕᵖ.<-irrefl refl ∣u∣<∣u∣
+⊏-irrefl refl (inj₂ u≺u) = ≺-irrefl refl u≺u
+
+⊏-trans : Transitive _⊏_
+⊏-trans (inj₁ ∣u∣<∣v∣) (inj₁ ∣v∣<∣w∣) = inj₁ (ℕᵖ.<-trans ∣u∣<∣v∣ ∣v∣<∣w∣)
+⊏-trans (inj₁ ∣u∣<∣v∣) (inj₂ (∣v∣≡∣w∣ , _)) rewrite ∣v∣≡∣w∣ = inj₁ ∣u∣<∣v∣
+⊏-trans (inj₂ (∣u∣≡∣v∣ , _)) (inj₁ ∣v∣<∣w∣) rewrite ∣u∣≡∣v∣ = inj₁ ∣v∣<∣w∣
+⊏-trans (inj₂ (∣u∣≡∣v∣ , u<v)) (inj₂ (∣v∣≡∣w∣ , v<w)) =
+  inj₂ (trans ∣u∣≡∣v∣ ∣v∣≡∣w∣ ,
+    <-transitive Eq.isEquivalence (resp₂ _) Boolᵖ.<-trans u<v v<w)
+
+⊏-compare : Trichotomous _≡_ _⊏_
+⊏-compare u v with ℕ.<-cmp ∣ u ∣ ∣ v ∣
+... | tri< ∣u∣<∣v∣ ∣u∣≢∣v∣ ∣u∣≯∣v∣ =
+      tri< (inj₁ ∣u∣<∣v∣) (λ u≡v → ∣u∣≢∣v∣ (cong ∣_∣ u≡v)) λ where
+        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
+        (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ (sym ∣u∣≡∣v∣)
+... | tri> ∣u∣≮∣v∣ ∣u∣≢∣v∣ ∣u∣>∣v∣ =
+      flip (flip tri> λ u≡v → ∣u∣≢∣v∣ (cong ∣_∣ u≡v)) (inj₁ ∣u∣>∣v∣) λ where
+        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
+        (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ ∣u∣≡∣v∣
+... | tri≈ ∣u∣≮∣v∣ ∣u∣≡∣v∣ ∣u∣≯∣v∣ with <-compare sym Boolᵖ.<-cmp u v
+... | tri< u≺v u≢v u⊁v =
+      tri< (inj₂ (∣u∣≡∣v∣ , u≺v)) (u≢v ∘ ≡⇒Pointwise-≡) λ where
+        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
+        (inj₂ (_ , u≻v)) → u⊁v u≻v
+... | tri> u⊀v u≢v u≻v =
+      flip (flip tri> (u≢v ∘ ≡⇒Pointwise-≡)) (inj₂ (sym ∣u∣≡∣v∣ , u≻v)) λ where
+        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
+        (inj₂ (_ , u≺v)) → u⊀v u≺v
+... | tri≈ u⊀v u≡v u⊁v =
+      flip tri≈ (Pointwise-≡⇒≡ u≡v) (λ where
+        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
+        (inj₂ (_ , u≺v)) → u⊀v u≺v) λ where
+        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
+        (inj₂ (_ , u≻v)) → u⊁v u≻v
 
 -- Set of finite binary sequences
 
@@ -252,32 +303,6 @@ L[ A ] = λ u → u ∈ A × (∀ w → u ⊏ w → w ∉ A) ⊎ ϕ ∉ A × u �
 _′ : SFBS ℓ → SFBS ℓ
 A ′ = λ u → u ∈ A ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
 
-⊏-compare : Trichotomous _≡_ _⊏_
-⊏-compare u v with ℕ.<-cmp ∣ u ∣ ∣ v ∣
-... | tri< ∣u∣<∣v∣ ∣u∣≢∣v∣ ∣u∣≯∣v∣ =
-      tri< (inj₁ ∣u∣<∣v∣) (λ u≡v → ∣u∣≢∣v∣ (cong ∣_∣ u≡v)) λ where
-        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
-        (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ (sym ∣u∣≡∣v∣)
-... | tri> ∣u∣≮∣v∣ ∣u∣≢∣v∣ ∣u∣>∣v∣ =
-      flip (flip tri> λ u≡v → ∣u∣≢∣v∣ (cong ∣_∣ u≡v)) (inj₁ ∣u∣>∣v∣) λ where
-        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
-        (inj₂ (∣u∣≡∣v∣ , _)) → ∣u∣≢∣v∣ ∣u∣≡∣v∣
-... | tri≈ ∣u∣≮∣v∣ ∣u∣≡∣v∣ ∣u∣≯∣v∣ with <-compare sym Boolᵖ.<-cmp u v
-... | tri< u≺v u≢v u⊁v =
-      tri< (inj₂ (∣u∣≡∣v∣ , u≺v)) (u≢v ∘ ≡⇒Pointwise-≡) λ where
-        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
-        (inj₂ (_ , u≻v)) → u⊁v u≻v
-... | tri> u⊀v u≢v u≻v =
-      flip (flip tri> (u≢v ∘ ≡⇒Pointwise-≡)) (inj₂ (sym ∣u∣≡∣v∣ , u≻v)) λ where
-        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
-        (inj₂ (_ , u≺v)) → u⊀v u≺v
-... | tri≈ u⊀v u≡v u⊁v =
-      flip tri≈ (Pointwise-≡⇒≡ u≡v) (λ where
-        (inj₁ ∣u∣<∣v∣) → ∣u∣≮∣v∣ ∣u∣<∣v∣
-        (inj₂ (_ , u≺v)) → u⊀v u≺v) λ where
-        (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
-        (inj₂ (_ , u≻v)) → u⊁v u≻v
-
 N-sameLen : ∀ u v → u ∈ N → v ∈ N → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
 N-sameLen ϕ ϕ _ _ _ = refl
 N-sameLen (0b ∷ u) (0b ∷ v) u∈N v∈N eq =
@@ -373,4 +398,8 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
             (length-++ y))
 
   c : Convex S → Convex (S ′)
-  c conv u v w u∈S′ w∈S′ u≺v v≺w = {!!}
+  c conv u v w u∈S′ w∈S′ u≺v v≺w =
+    let u≺w = ≺-trans u≺v v≺w
+    in S′-sameLen u∈S′ w∈S′ (u≺w .proj₁) |> λ where
+      (inj₁ u≡w) → ⊥-elim (≺-irrefl u≡w u≺w)
+      (inj₂ (u∈S , v∈S)) → inj₁ (conv u v w u∈S v∈S u≺v v≺w)
