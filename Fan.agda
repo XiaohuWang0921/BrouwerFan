@@ -70,6 +70,8 @@ resIBS α (suc n) = Stream.head α ∷ resIBS (Stream.tail α) n
 
 -- Lexicographical ordering
 
+infix 4 _≺_ _⊏_
+
 _≺_ : Rel FBS 0ℓ
 u ≺ v = ∣ u ∣ ≡ ∣ v ∣ × Lex-< _≡_ Bool._<_ u v
 
@@ -126,6 +128,27 @@ u ⊏ v = ∣ u ∣ ℕ.< ∣ v ∣ ⊎ u ≺ v
         (inj₂ (_ , u≺v)) → u⊀v u≺v) λ where
         (inj₁ ∣u∣>∣v∣) → ∣u∣≯∣v∣ ∣u∣>∣v∣
         (inj₂ (_ , u≻v)) → u⊁v u≻v
+
+⊏⇒≤ : ∀ {u v} → u ⊏ v → ∣ u ∣ ℕ.≤ ∣ v ∣
+⊏⇒≤ (inj₁ lenLt) = ℕᵖ.<⇒≤ lenLt
+⊏⇒≤ (inj₂ (lenEq , _)) = ℕᵖ.≤-reflexive lenEq
+
+++-⊏ˡ : ∀ u v w → u List.++ v ⊏ w → u ⊏ w
+++-⊏ˡ u ϕ w u++ϕ⊏w rewrite ++-identityʳ u = u++ϕ⊏w
+++-⊏ˡ u v@(_ ∷ _) w u++v⊏w = inj₁ (ℕᵖ.<-≤-trans lenLt (⊏⇒≤ u++v⊏w))
+  where
+    lenLt : ∣ u ∣ ℕ.< ∣ u List.++ v ∣
+    lenLt rewrite length-++ u {v} = m<m+n _ (s≤s z≤n)
+
+++-⊏ʳ : ∀ u v w → u List.++ v ⊏ w → v ⊏ w
+++-⊏ʳ ϕ v w v⊏w = v⊏w
+++-⊏ʳ u@(_ ∷ _) v w u++v⊏w = inj₁ (<-≤-trans lenLt (⊏⇒≤ u++v⊏w))
+  where
+    lenLt : ∣ v ∣ ℕ.< ∣ u List.++ v ∣
+    lenLt rewrite length-++ u {v} = m<n+m _ (s≤s z≤n)
+
+
+{-!!! Question break !!!-}
 
 -- Set of finite binary sequences
 
@@ -191,6 +214,9 @@ IsUniformBar A = ∃[ N ] ∀ α → ∃[ n ] n ℕ.≤ N × resIBS α n ∈ A
 Convex A = ∀ u v w → u ∈ A → w ∈ A → u ≺ v → v ≺ w → v ∈ A
 
 Coconvex A = Convex (∁ A)
+
+
+{-!!! Question break !!!-}
 
 -----------------------------------------------------------
 -- Section 25.3 Weak König Lemma
@@ -294,6 +320,9 @@ lem25-1 S (dec , clRes) = mk⇔ a→b b→a
     ... | no ∄n with LP n ∄n
     ... | (α , lp) = resIBS α n , assm α lp n , ∣resIBS∣ α n
 
+
+{-!!! Question break !!!-}
+
 LPL : (ℓ : Level) → Set (Level.suc ℓ)
 LPL ℓ = (S : SFBS ℓ) → IsTree S → ∃[ α ] IsLongestPath α S
 
@@ -334,14 +363,13 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
   LS-unique : ∀ u v → u ∈ L[ S ] → v ∈ L[ S ] → u ≡ v
   LS-unique u v (inj₁ (u∈S , u-max)) (inj₁ (v∈S , v-max)) with ⊏-compare u v
   ... | tri< u⊏v _   _   = ⊥-elim (u-max v u⊏v v∈S)
-  ... | tri> u⋢v u≢v u⊐v = ⊥-elim (v-max u u⊐v u∈S)
+  ... | tri> _    _  u⊐v = ⊥-elim (v-max u u⊐v u∈S)
   ... | tri≈ _   u≡v _   = u≡v
   LS-unique u v (inj₁ (u∈S , _)) (inj₂ (ϕ∉S , _)) =
     ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
   LS-unique u v (inj₂ (ϕ∉S , _)) (inj₁ (v∈S , _)) =
     ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
   LS-unique .ϕ .ϕ (inj₂ (_ , refl)) (inj₂ (_ , refl)) = refl
-
 
 
 
