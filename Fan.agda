@@ -199,7 +199,7 @@ IsCSet : SFBS ℓ → Set (Level.suc ℓ)
 
 Detachable = Decidable
 
-IsCSet A = ∃[ D ] Detachable D × A ≐ cl D
+IsCSet A = ∃[ D ] Detachable D × A ≐ D °
 
 ClEx A = ∀ u w → u ∈ A → u List.++ w ∈ A
 
