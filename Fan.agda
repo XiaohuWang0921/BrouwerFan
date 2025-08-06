@@ -435,7 +435,7 @@ module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
       (inj₂ (u∈S , v∈S)) → inj₁ (conv u v w u∈S v∈S u≺v v≺w)
 
   max : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ w ] w ∈ L[ S ]
-  max = {!!}
+  max n ∄ = {!!}
 
   d : ∀ n → (∀ u → ∣ u ∣ ≡ n → u ∉ S) → ∀ α β → IsPath α S → IsPath β S → α ≈ β
   d = {!!}
