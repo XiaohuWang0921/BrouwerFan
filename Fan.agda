@@ -35,6 +35,7 @@ open ≡-Reasoning
 pattern 0b = false
 pattern 1b = true
 pattern ϕ = []
+{-# INLINE Stream._∷_ #-}
 
 -- Finite binary sequences
 FBS : Set
@@ -227,7 +228,7 @@ WKL : (ℓ : Level) → Set (Level.suc ℓ)
 WKL ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ α ] IsPath α S
 
 WKL' : (ℓ : Level) → Set (Level.suc ℓ)
-WKL' ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → Infinite (S ∘ (0b ∷_)) ⊎ Infinite (S ∘ (1b ∷_))
+WKL' ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ b ] Infinite (S ∘ (b ∷_))
 
 ∣resIBS∣ : ∀ α n → ∣ resIBS α n ∣ ≡ n
 ∣resIBS∣ α 0 = refl
@@ -240,17 +241,16 @@ eqv : ∀ {ℓ} → WKL ℓ ⇔ WKL' ℓ
 eqv {ℓ} = mk⇔ a→b b→a
   where
     a→b : WKL ℓ → WKL' ℓ
-    a→b wkl S infTree with wkl S infTree
-    ... | α , isPath with α .Stream.head | isPath ∘ ℕ.suc
-    ... | 0b | isPathSuc =
-      inj₁ (Path⇒Inf (S ∘ (0b ∷_)) (α .Stream.tail) isPathSuc)
-    ... | 1b | isPathSuc =
-      inj₂ (Path⇒Inf (S ∘ (1b ∷_)) (α .Stream.tail) isPathSuc)
+    a→b wkl S infTree =
+      let α , isPath = wkl S infTree
+      in α .Stream.head ,
+        Path⇒Inf (S ∘ (α .Stream.head ∷_)) (α .Stream.tail) (isPath ∘ ℕ.suc)
+
+    path : WKL' ℓ → (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → IBS
+    path wkl' S infTree = {!!}
     
     b→a : WKL' ℓ → WKL ℓ
-    b→a wkl' S infTree with wkl' S infTree
-    ... | inj₁ S0-inf = {!!} , {!!}
-    ... | inj₂ S1-inf = {!!} , {!!}
+    b→a wkl' S infTree = {!!}
 
 -- decFixLen : {A : SFBS ℓ} → Detachable A → ∀ n → Dec (∃[ u ] u ∈ A × ∣ u ∣ ≡ n)
 -- decFixLen dec 0 with dec ϕ
