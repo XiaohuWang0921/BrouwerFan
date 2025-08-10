@@ -172,7 +172,7 @@ cl : SFBS ℓ → SFBS ℓ
 cl A = λ v → ∃[ u ] ∃[ w ] v ≡ u List.++ w × u ∈ A
 
 der : SFBS ℓ → FBS → SFBS ℓ
-der A u = λ w → u List.++ w ∈ A
+der A u = A ∘ (u List.++_)
 
 -- Paths
 
@@ -226,216 +226,238 @@ Coconvex A = Convex (∁ A)
 WKL : (ℓ : Level) → Set (Level.suc ℓ)
 WKL ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ α ] IsPath α S
 
-decFixLen : {A : SFBS ℓ} → Detachable A → ∀ n → Dec (∃[ u ] u ∈ A × ∣ u ∣ ≡ n)
-decFixLen dec 0 with dec ϕ
-... | yes ϕ∈A = yes (ϕ , ϕ∈A , refl)
-... | no ϕ∉A = no (λ where
-  (ϕ , ϕ∈A , _) → ϕ∉A ϕ∈A)
-decFixLen dec (suc n) with decFixLen (dec ∘ (0b ∷_)) n
-... | yes (u , 0∷u∈A , ∣u∣≡n) = yes (0b ∷ u , 0∷u∈A , cong ℕ.suc ∣u∣≡n)
-... | no ∄0b with decFixLen (dec ∘ (1b ∷_)) n
-... | yes (u , 1∷u∈A , ∣u∣≡n) = yes (1b ∷ u , 1∷u∈A , cong ℕ.suc ∣u∣≡n)
-... | no ∄1b = no (λ where
-  (0b ∷ u , 0∷u∈A , ∣0∷u∣≡sn) → ∄0b (u , 0∷u∈A , suc-injective ∣0∷u∣≡sn)
-  (1b ∷ u , 1∷u∈A , ∣1∷u∣≡sn) → ∄1b (u , 1∷u∈A , suc-injective ∣1∷u∣≡sn))
-
-∣resFBS∣ : ∀ u n .n≤∣u∣ → ∣ resFBS u n n≤∣u∣ ∣ ≡ n
-∣resFBS∣ _ 0 _ = refl
-∣resFBS∣ (b ∷ u) (suc n) sn≤∣b∷u∣ = cong ℕ.suc (∣resFBS∣ u n (≤-pred sn≤∣b∷u∣))
+WKL' : (ℓ : Level) → Set (Level.suc ℓ)
+WKL' ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → Infinite (S ∘ (0b ∷_)) ⊎ Infinite (S ∘ (1b ∷_))
 
 ∣resIBS∣ : ∀ α n → ∣ resIBS α n ∣ ≡ n
 ∣resIBS∣ α 0 = refl
 ∣resIBS∣ α (suc n) = cong ℕ.suc (∣resIBS∣ (Stream.tail α) n)
 
-resFBS-++ : ∀ u v →
-  resFBS (u List.++ v) ∣ u ∣
-    (subst (∣ u ∣ ℕ.≤_) (sym (length-++ u)) (m≤m+n _ _)) ≡
-  u
-resFBS-++ ϕ _ = refl
-resFBS-++ (b ∷ u) v = cong (b ∷_) (resFBS-++ u v)
+Path⇒Inf : ∀ {ℓ} (S : SFBS ℓ) α → IsPath α S → Infinite S
+Path⇒Inf S α isPath n = resIBS α n , isPath n , ∣resIBS∣ α n
 
-resIBS-++ : ∀ u α → resIBS (u Stream.++ α) ∣ u ∣ ≡ u
-resIBS-++ ϕ _ = refl
-resIBS-++ (b ∷ u) α = cong (b ∷_) (resIBS-++ u α)
-
-resFBS-idem : ∀ u n m .n≤∣u∣ .m≤∣res-n∣ →
-  resFBS (resFBS u n n≤∣u∣) m m≤∣res-n∣ ≡
-  resFBS u m (ℕᵖ.≤-trans (subst (m ℕ.≤_) (∣resFBS∣ u n n≤∣u∣) m≤∣res-n∣) n≤∣u∣)
-resFBS-idem _ _ 0 _ _ = refl
-resFBS-idem (b ∷ u) (suc n) (suc m) sn≤∣b∷u∣ sm≤∣res-sn∣ =
-  cong (b ∷_) (resFBS-idem u n m (≤-pred sn≤∣b∷u∣) (≤-pred sm≤∣res-sn∣))
-
-resIBS-idem : ∀ α n m .m≤∣res-n∣ →
-  resFBS (resIBS α n) m m≤∣res-n∣ ≡ resIBS α m
-resIBS-idem α _ 0 _ = refl
-resIBS-idem α (suc n) (suc m) sm≤∣res-sn∣ =
-  let b = Stream.head α
-      β = Stream.tail α
-  in cong (b ∷_) (resIBS-idem β n m (≤-pred sm≤∣res-sn∣))
-
-lem25-1 : (S : SFBS ℓ) → IsTree S →
-  Infinite S ⇔ ∀ α → IsLongestPath α S → IsPath α S
-lem25-1 S (dec , clRes) = mk⇔ a→b b→a
+eqv : ∀ {ℓ} → WKL ℓ ⇔ WKL' ℓ
+eqv {ℓ} = mk⇔ a→b b→a
   where
-    a→b : Infinite S → ∀ α → IsLongestPath α S → IsPath α S
-    a→b inf α lp n with inf n
-    ... | u , u∈S , refl = lp u u∈S
-
-    boundLen : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∀ u → u ∈ S → ∣ u ∣ ℕ.< n
-    boundLen n ∄n u u∈S with ∣ u ∣ ℕ.<? n
-    ... | yes ∣u∣<n = ∣u∣<n
-    ... | no ∣u∣≮n = let ∣u∣≥n = ≮⇒≥ ∣u∣≮n in
-      ⊥-elim (∄n (resFBS u n ∣u∣≥n , clRes u n ∣u∣≥n u∈S , ∣resFBS∣ u n ∣u∣≥n))
+    a→b : WKL ℓ → WKL' ℓ
+    a→b wkl S infTree with wkl S infTree
+    ... | α , isPath with α .Stream.head | isPath ∘ ℕ.suc
+    ... | 0b | isPathSuc =
+      inj₁ (Path⇒Inf (S ∘ (0b ∷_)) (α .Stream.tail) isPathSuc)
+    ... | 1b | isPathSuc =
+      inj₂ (Path⇒Inf (S ∘ (1b ∷_)) (α .Stream.tail) isPathSuc)
     
-    maxLen : ∀ n →
-      ∄[ u ] u ∈ S × ∣ u ∣ ≡ n →
-      ∄[ u ] u ∈ S ⊎ ∃[ u ] u ∈ S × ∀ v → v ∈ S → ∣ v ∣ ℕ.≤ ∣ u ∣
-    maxLen 0 ∄0 = inj₁ λ (u , u∈S) →
-      ∄0 (resFBS u 0 z≤n , clRes u 0 z≤n u∈S , refl)
-    maxLen (suc n) ∄sn with decFixLen dec n
-    ... | yes (u , u∈S , ∣u∣≡n) = inj₂ (u , u∈S , λ v v∈S →
-      subst (∣ v ∣ ℕ.≤_) (sym ∣u∣≡n) (≤-pred (boundLen (ℕ.suc n) ∄sn v v∈S)))
-    ... | no ∄n = maxLen n ∄n
+    b→a : WKL' ℓ → WKL ℓ
+    b→a wkl' S infTree with wkl' S infTree
+    ... | inj₁ S0-inf = {!!} , {!!}
+    ... | inj₂ S1-inf = {!!} , {!!}
 
-    LP : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ α ] IsLongestPath α S
-    LP n ∄n with maxLen n ∄n
-    ... | inj₁ S≐∅ = repeat 0b , λ u u∈S → ⊥-elim (S≐∅ (u , u∈S))
-    ... | inj₂ (u , u∈S , bound) =
-      let α = u Stream.++ repeat 1b in α , λ v v∈S →
-      let
-        leq = bound v v∈S
-        eq = begin
-          resFBS u (∣ v ∣) leq ≡˘⟨
-            cong {A = ∃[ w ] ∣ v ∣ ℕ.≤ ∣ w ∣} (λ (w , ∣v∣≤∣w∣) → resFBS w _ ∣v∣≤∣w∣)
-              {x = resIBS α ∣ u ∣ , subst (∣ v ∣ ℕ.≤_) (sym (∣resIBS∣ α ∣ u ∣)) leq} {y = u , leq}
-              (Σ-≡,≡→≡ ((resIBS-++ u (repeat 1b)) , ℕᵖ.≤-irrelevant _ _))
-          ⟩ resFBS (resIBS α ∣ u ∣) (∣ v ∣)
-            (subst (∣ v ∣ ℕ.≤_) (sym (∣resIBS∣ α ∣ u ∣)) leq) ≡⟨
-            resIBS-idem α ∣ u ∣ ∣ v ∣ (subst (∣ v ∣ ℕ.≤_)
-              (sym (∣resIBS∣ α ∣ u ∣)) leq)
-          ⟩ resIBS α ∣ v ∣ ∎
-      in subst S eq (clRes u ∣ v ∣ (bound v v∈S) u∈S)
+-- decFixLen : {A : SFBS ℓ} → Detachable A → ∀ n → Dec (∃[ u ] u ∈ A × ∣ u ∣ ≡ n)
+-- decFixLen dec 0 with dec ϕ
+-- ... | yes ϕ∈A = yes (ϕ , ϕ∈A , refl)
+-- ... | no ϕ∉A = no (λ where
+--   (ϕ , ϕ∈A , _) → ϕ∉A ϕ∈A)
+-- decFixLen dec (suc n) with decFixLen (dec ∘ (0b ∷_)) n
+-- ... | yes (u , 0∷u∈A , ∣u∣≡n) = yes (0b ∷ u , 0∷u∈A , cong ℕ.suc ∣u∣≡n)
+-- ... | no ∄0b with decFixLen (dec ∘ (1b ∷_)) n
+-- ... | yes (u , 1∷u∈A , ∣u∣≡n) = yes (1b ∷ u , 1∷u∈A , cong ℕ.suc ∣u∣≡n)
+-- ... | no ∄1b = no (λ where
+--   (0b ∷ u , 0∷u∈A , ∣0∷u∣≡sn) → ∄0b (u , 0∷u∈A , suc-injective ∣0∷u∣≡sn)
+--   (1b ∷ u , 1∷u∈A , ∣1∷u∣≡sn) → ∄1b (u , 1∷u∈A , suc-injective ∣1∷u∣≡sn))
 
-    b→a : (∀ α → IsLongestPath α S → IsPath α S) → Infinite S
-    b→a assm n with decFixLen dec n
-    ... | yes ∃n = ∃n
-    ... | no ∄n with LP n ∄n
-    ... | (α , lp) = resIBS α n , assm α lp n , ∣resIBS∣ α n
+-- ∣resFBS∣ : ∀ u n .n≤∣u∣ → ∣ resFBS u n n≤∣u∣ ∣ ≡ n
+-- ∣resFBS∣ _ 0 _ = refl
+-- ∣resFBS∣ (b ∷ u) (suc n) sn≤∣b∷u∣ = cong ℕ.suc (∣resFBS∣ u n (≤-pred sn≤∣b∷u∣))
+
+-- resFBS-++ : ∀ u v →
+--   resFBS (u List.++ v) ∣ u ∣
+--     (subst (∣ u ∣ ℕ.≤_) (sym (length-++ u)) (m≤m+n _ _)) ≡
+--   u
+-- resFBS-++ ϕ _ = refl
+-- resFBS-++ (b ∷ u) v = cong (b ∷_) (resFBS-++ u v)
+
+-- resIBS-++ : ∀ u α → resIBS (u Stream.++ α) ∣ u ∣ ≡ u
+-- resIBS-++ ϕ _ = refl
+-- resIBS-++ (b ∷ u) α = cong (b ∷_) (resIBS-++ u α)
+
+-- resFBS-idem : ∀ u n m .n≤∣u∣ .m≤∣res-n∣ →
+--   resFBS (resFBS u n n≤∣u∣) m m≤∣res-n∣ ≡
+--   resFBS u m (ℕᵖ.≤-trans (subst (m ℕ.≤_) (∣resFBS∣ u n n≤∣u∣) m≤∣res-n∣) n≤∣u∣)
+-- resFBS-idem _ _ 0 _ _ = refl
+-- resFBS-idem (b ∷ u) (suc n) (suc m) sn≤∣b∷u∣ sm≤∣res-sn∣ =
+--   cong (b ∷_) (resFBS-idem u n m (≤-pred sn≤∣b∷u∣) (≤-pred sm≤∣res-sn∣))
+
+-- resIBS-idem : ∀ α n m .m≤∣res-n∣ →
+--   resFBS (resIBS α n) m m≤∣res-n∣ ≡ resIBS α m
+-- resIBS-idem α _ 0 _ = refl
+-- resIBS-idem α (suc n) (suc m) sm≤∣res-sn∣ =
+--   let b = Stream.head α
+--       β = Stream.tail α
+--   in cong (b ∷_) (resIBS-idem β n m (≤-pred sm≤∣res-sn∣))
+
+-- lem25-1 : (S : SFBS ℓ) → IsTree S →
+--   Infinite S ⇔ ∀ α → IsLongestPath α S → IsPath α S
+-- lem25-1 S (dec , clRes) = mk⇔ a→b b→a
+--   where
+--     a→b : Infinite S → ∀ α → IsLongestPath α S → IsPath α S
+--     a→b inf α lp n with inf n
+--     ... | u , u∈S , refl = lp u u∈S
+
+--     boundLen : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∀ u → u ∈ S → ∣ u ∣ ℕ.< n
+--     boundLen n ∄n u u∈S with ∣ u ∣ ℕ.<? n
+--     ... | yes ∣u∣<n = ∣u∣<n
+--     ... | no ∣u∣≮n = let ∣u∣≥n = ≮⇒≥ ∣u∣≮n in
+--       ⊥-elim (∄n (resFBS u n ∣u∣≥n , clRes u n ∣u∣≥n u∈S , ∣resFBS∣ u n ∣u∣≥n))
+    
+--     maxLen : ∀ n →
+--       ∄[ u ] u ∈ S × ∣ u ∣ ≡ n →
+--       ∄[ u ] u ∈ S ⊎ ∃[ u ] u ∈ S × ∀ v → v ∈ S → ∣ v ∣ ℕ.≤ ∣ u ∣
+--     maxLen 0 ∄0 = inj₁ λ (u , u∈S) →
+--       ∄0 (resFBS u 0 z≤n , clRes u 0 z≤n u∈S , refl)
+--     maxLen (suc n) ∄sn with decFixLen dec n
+--     ... | yes (u , u∈S , ∣u∣≡n) = inj₂ (u , u∈S , λ v v∈S →
+--       subst (∣ v ∣ ℕ.≤_) (sym ∣u∣≡n) (≤-pred (boundLen (ℕ.suc n) ∄sn v v∈S)))
+--     ... | no ∄n = maxLen n ∄n
+
+--     LP : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ α ] IsLongestPath α S
+--     LP n ∄n with maxLen n ∄n
+--     ... | inj₁ S≐∅ = repeat 0b , λ u u∈S → ⊥-elim (S≐∅ (u , u∈S))
+--     ... | inj₂ (u , u∈S , bound) =
+--       let α = u Stream.++ repeat 1b in α , λ v v∈S →
+--       let
+--         leq = bound v v∈S
+--         eq = begin
+--           resFBS u (∣ v ∣) leq ≡˘⟨
+--             cong {A = ∃[ w ] ∣ v ∣ ℕ.≤ ∣ w ∣} (λ (w , ∣v∣≤∣w∣) → resFBS w _ ∣v∣≤∣w∣)
+--               {x = resIBS α ∣ u ∣ , subst (∣ v ∣ ℕ.≤_) (sym (∣resIBS∣ α ∣ u ∣)) leq} {y = u , leq}
+--               (Σ-≡,≡→≡ ((resIBS-++ u (repeat 1b)) , ℕᵖ.≤-irrelevant _ _))
+--           ⟩ resFBS (resIBS α ∣ u ∣) (∣ v ∣)
+--             (subst (∣ v ∣ ℕ.≤_) (sym (∣resIBS∣ α ∣ u ∣)) leq) ≡⟨
+--             resIBS-idem α ∣ u ∣ ∣ v ∣ (subst (∣ v ∣ ℕ.≤_)
+--               (sym (∣resIBS∣ α ∣ u ∣)) leq)
+--           ⟩ resIBS α ∣ v ∣ ∎
+--       in subst S eq (clRes u ∣ v ∣ (bound v v∈S) u∈S)
+
+--     b→a : (∀ α → IsLongestPath α S → IsPath α S) → Infinite S
+--     b→a assm n with decFixLen dec n
+--     ... | yes ∃n = ∃n
+--     ... | no ∄n with LP n ∄n
+--     ... | (α , lp) = resIBS α n , assm α lp n , ∣resIBS∣ α n
 
 
-{-!!! Question break !!!-}
+-- {-!!! Question break !!!-}
 
-LPL : (ℓ : Level) → Set (Level.suc ℓ)
-LPL ℓ = (S : SFBS ℓ) → IsTree S → ∃[ α ] IsLongestPath α S
+-- LPL : (ℓ : Level) → Set (Level.suc ℓ)
+-- LPL ℓ = (S : SFBS ℓ) → IsTree S → ∃[ α ] IsLongestPath α S
 
-L[_] : SFBS ℓ → SFBS ℓ
-L[ A ] = λ u → u ∈ A × (∀ w → u ⊏ w → w ∉ A) ⊎ ϕ ∉ A × u ≡ ϕ
+-- L[_] : SFBS ℓ → SFBS ℓ
+-- L[ A ] = λ u → u ∈ A × (∀ w → u ⊏ w → w ∉ A) ⊎ ϕ ∉ A × u ≡ ϕ
 
-_′ : SFBS ℓ → SFBS ℓ
-A ′ = λ u → u ∈ A ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
+-- _′ : SFBS ℓ → SFBS ℓ
+-- A ′ = λ u → u ∈ A ⊎ ∃[ v ] ∃[ w ] v ∈ L[ A ] × w ∈ N × u ≡ v List.++ w
 
-N-sameLen : ∀ u v → u ∈ N → v ∈ N → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
-N-sameLen ϕ ϕ _ _ _ = refl
-N-sameLen (0b ∷ u) (0b ∷ v) u∈N v∈N eq =
-  cong (0b ∷_) (N-sameLen u v u∈N v∈N (suc-injective eq))
+-- N-sameLen : ∀ u v → u ∈ N → v ∈ N → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
+-- N-sameLen ϕ ϕ _ _ _ = refl
+-- N-sameLen (0b ∷ u) (0b ∷ v) u∈N v∈N eq =
+--   cong (0b ∷_) (N-sameLen u v u∈N v∈N (suc-injective eq))
       
-E-sameLen : ∀ u v → u ∈ E → v ∈ E → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
-E-sameLen ϕ ϕ _ _ _ = refl
-E-sameLen (1b ∷ u) (1b ∷ v) u∈E v∈E eq =
-  cong (1b ∷_) (E-sameLen u v u∈E v∈E (suc-injective eq))
+-- E-sameLen : ∀ u v → u ∈ E → v ∈ E → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v
+-- E-sameLen ϕ ϕ _ _ _ = refl
+-- E-sameLen (1b ∷ u) (1b ∷ v) u∈E v∈E eq =
+--   cong (1b ∷_) (E-sameLen u v u∈E v∈E (suc-injective eq))
 
-module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
-  dec = t .proj₁
-  clRes = t .proj₂
+-- module Prop25-2 (S : SFBS ℓ) (t : IsTree S) where
+--   dec = t .proj₁
+--   clRes = t .proj₂
 
-  a : S ⊆ S ′
-  a = inj₁
+--   a : S ⊆ S ′
+--   a = inj₁
 
-  b : Infinite S → S ≐ S ′
-  b inf = a , (λ where
-    (inj₁ u∈S) → u∈S
-    (inj₂ (v , _ , inj₁ (_ , v-max) , _ , _)) →
-      let x , x∈S , ∣x∣≡s∣v∣ = inf (ℕ.suc ∣ v ∣)
-      in ⊥-elim
-         (v-max x (inj₁ (resp (∣ v ∣ ℕ.<_) (sym ∣x∣≡s∣v∣) (n<1+n _))) x∈S)
-    (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , _)) →
-      ⊥-elim (ϕ∉S (inf 0 |> λ where
-        (ϕ , ϕ∈S , _) → ϕ∈S)))
+--   b : Infinite S → S ≐ S ′
+--   b inf = a , (λ where
+--     (inj₁ u∈S) → u∈S
+--     (inj₂ (v , _ , inj₁ (_ , v-max) , _ , _)) →
+--       let x , x∈S , ∣x∣≡s∣v∣ = inf (ℕ.suc ∣ v ∣)
+--       in ⊥-elim
+--          (v-max x (inj₁ (resp (∣ v ∣ ℕ.<_) (sym ∣x∣≡s∣v∣) (n<1+n _))) x∈S)
+--     (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , _)) →
+--       ⊥-elim (ϕ∉S (inf 0 |> λ where
+--         (ϕ , ϕ∈S , _) → ϕ∈S)))
 
-  LS-unique : ∀ u v → u ∈ L[ S ] → v ∈ L[ S ] → u ≡ v
-  LS-unique u v (inj₁ (u∈S , u-max)) (inj₁ (v∈S , v-max)) with ⊏-compare u v
-  ... | tri< u⊏v _   _   = ⊥-elim (u-max v u⊏v v∈S)
-  ... | tri> _    _  u⊐v = ⊥-elim (v-max u u⊐v u∈S)
-  ... | tri≈ _   u≡v _   = u≡v
-  LS-unique u v (inj₁ (u∈S , _)) (inj₂ (ϕ∉S , _)) =
-    ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
-  LS-unique u v (inj₂ (ϕ∉S , _)) (inj₁ (v∈S , _)) =
-    ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
-  LS-unique .ϕ .ϕ (inj₂ (_ , refl)) (inj₂ (_ , refl)) = refl
-
-
+--   LS-unique : ∀ u v → u ∈ L[ S ] → v ∈ L[ S ] → u ≡ v
+--   LS-unique u v (inj₁ (u∈S , u-max)) (inj₁ (v∈S , v-max)) with ⊏-compare u v
+--   ... | tri< u⊏v _   _   = ⊥-elim (u-max v u⊏v v∈S)
+--   ... | tri> _    _  u⊐v = ⊥-elim (v-max u u⊐v u∈S)
+--   ... | tri≈ _   u≡v _   = u≡v
+--   LS-unique u v (inj₁ (u∈S , _)) (inj₂ (ϕ∉S , _)) =
+--     ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
+--   LS-unique u v (inj₂ (ϕ∉S , _)) (inj₁ (v∈S , _)) =
+--     ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
+--   LS-unique .ϕ .ϕ (inj₂ (_ , refl)) (inj₂ (_ , refl)) = refl
 
 
-  S′-sameLen : ∀ {u v} → u ∈ (S ′) → v ∈ (S ′) → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v ⊎ u ∈ S × v ∈ S
+
+
+--   S′-sameLen : ∀ {u v} → u ∈ (S ′) → v ∈ (S ′) → ∣ u ∣ ≡ ∣ v ∣ → u ≡ v ⊎ u ∈ S × v ∈ S
   
-  -- Trivial positive cases: u, v ∈ S
-  S′-sameLen (inj₁ u∈S) (inj₁ v∈S) _ = inj₂ (u∈S , v∈S)
-  S′-sameLen (inj₁ u∈S) (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) _
-    rewrite ++-identityʳ w = inj₂ (u∈S , w∈S)
-  S′-sameLen (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) (inj₁ v∈S) _
-    rewrite ++-identityʳ w = inj₂ (w∈S , v∈S)
+--   -- Trivial positive cases: u, v ∈ S
+--   S′-sameLen (inj₁ u∈S) (inj₁ v∈S) _ = inj₂ (u∈S , v∈S)
+--   S′-sameLen (inj₁ u∈S) (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) _
+--     rewrite ++-identityʳ w = inj₂ (u∈S , w∈S)
+--   S′-sameLen (inj₂ (w , ϕ , inj₁ (w∈S , _) , _ , refl)) (inj₁ v∈S) _
+--     rewrite ++-identityʳ w = inj₂ (w∈S , v∈S)
 
-  -- Trivial contradictory cases: u ∈ S but ϕ ∉ S
-  S′-sameLen {u} (inj₁ u∈S) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
-    ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
-  S′-sameLen {_} {v} (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₁ v∈S) _ =
-    ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
-  S′-sameLen (inj₂ (w , _ , inj₁ (w∈S , _) , _ , refl)) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
-    ⊥-elim (ϕ∉S (clRes w 0 z≤n w∈S))
-  S′-sameLen (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₂ (y , _ , inj₁ (y∈S , _) , _ , refl)) _ =
-    ⊥-elim (ϕ∉S (clRes y 0 z≤n y∈S))
+--   -- Trivial contradictory cases: u ∈ S but ϕ ∉ S
+--   S′-sameLen {u} (inj₁ u∈S) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
+--     ⊥-elim (ϕ∉S (clRes u 0 z≤n u∈S))
+--   S′-sameLen {_} {v} (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₁ v∈S) _ =
+--     ⊥-elim (ϕ∉S (clRes v 0 z≤n v∈S))
+--   S′-sameLen (inj₂ (w , _ , inj₁ (w∈S , _) , _ , refl)) (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) _ =
+--     ⊥-elim (ϕ∉S (clRes w 0 z≤n w∈S))
+--   S′-sameLen (inj₂ (_ , _ , inj₂ (ϕ∉S , _) , _ , refl)) (inj₂ (y , _ , inj₁ (y∈S , _) , _ , refl)) _ =
+--     ⊥-elim (ϕ∉S (clRes y 0 z≤n y∈S))
 
-  -- Trivial exception case: u ≡ v ≡ ϕ
-  S′-sameLen (inj₂ (.ϕ , x , inj₂ (_ , refl) , x∈N , refl)) (inj₂ (.ϕ , z , inj₂ (_ , refl) , z∈N , refl)) lenEq =
-    inj₁ (N-sameLen x z x∈N z∈N lenEq)
+--   -- Trivial exception case: u ≡ v ≡ ϕ
+--   S′-sameLen (inj₂ (.ϕ , x , inj₂ (_ , refl) , x∈N , refl)) (inj₂ (.ϕ , z , inj₂ (_ , refl) , z∈N , refl)) lenEq =
+--     inj₁ (N-sameLen x z x∈N z∈N lenEq)
 
-  -- Advanced contradictory cases: u ∈ S, w ∈ S maximal, but w ⊏ u
-  S′-sameLen {u} (inj₁ u∈S) (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) lenEq =
-    ⊥-elim
-      (w-max u (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) u∈S)
-    where
-      +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ u ∣
-      +-lenEq = sym (trans lenEq (length-++ w))    
+--   -- Advanced contradictory cases: u ∈ S, w ∈ S maximal, but w ⊏ u
+--   S′-sameLen {u} (inj₁ u∈S) (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) lenEq =
+--     ⊥-elim
+--       (w-max u (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) u∈S)
+--     where
+--       +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ u ∣
+--       +-lenEq = sym (trans lenEq (length-++ w))    
 
-  S′-sameLen {_} {v} (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) (inj₁ v∈S) lenEq =
-    ⊥-elim
-      (w-max v (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) v∈S)
-    where
-      +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ v ∣
-      +-lenEq = trans (sym (length-++ w)) lenEq
+--   S′-sameLen {_} {v} (inj₂ (w , (0b ∷ x) , inj₁ (w∈S , w-max) , _ , refl)) (inj₁ v∈S) lenEq =
+--     ⊥-elim
+--       (w-max v (inj₁ (subst (∣ w ∣ ℕ.<_) +-lenEq (m<m+n ∣ w ∣ (s≤s z≤n)))) v∈S)
+--     where
+--       +-lenEq : ∣ w ∣ + ∣ 0b ∷ x ∣ ≡ ∣ v ∣
+--       +-lenEq = trans (sym (length-++ w)) lenEq
 
-  -- Most advanced case: u ≡ w ++ x, v ≡ y ++ z, w, y ∈ S maximal, x, z zeroes
-  S′-sameLen (inj₂ (w , x , w∈LS , x∈N , refl)) (inj₂ (y , z , y∈LS , z∈N , refl)) lenEq rewrite LS-unique w y w∈LS y∈LS =
-    inj₁ (cong (y List.++_) (N-sameLen x z x∈N z∈N
-      (+-cancelˡ-≡ ∣ y ∣ _ _ +-lenEq)))
-    where
-      +-lenEq : ∣ y ∣ + ∣ x ∣ ≡ ∣ y ∣ + ∣ z ∣
-      +-lenEq =
-        trans
-          (sym (length-++ y))
-          (trans
-            lenEq
-            (length-++ y))
+--   -- Most advanced case: u ≡ w ++ x, v ≡ y ++ z, w, y ∈ S maximal, x, z zeroes
+--   S′-sameLen (inj₂ (w , x , w∈LS , x∈N , refl)) (inj₂ (y , z , y∈LS , z∈N , refl)) lenEq rewrite LS-unique w y w∈LS y∈LS =
+--     inj₁ (cong (y List.++_) (N-sameLen x z x∈N z∈N
+--       (+-cancelˡ-≡ ∣ y ∣ _ _ +-lenEq)))
+--     where
+--       +-lenEq : ∣ y ∣ + ∣ x ∣ ≡ ∣ y ∣ + ∣ z ∣
+--       +-lenEq =
+--         trans
+--           (sym (length-++ y))
+--           (trans
+--             lenEq
+--             (length-++ y))
 
-  c : Convex S → Convex (S ′)
-  c conv u v w u∈S′ w∈S′ u≺v v≺w =
-    let u≺w = ≺-trans u≺v v≺w
-    in S′-sameLen u∈S′ w∈S′ (u≺w .proj₁) |> λ where
-      (inj₁ u≡w) → ⊥-elim (≺-irrefl u≡w u≺w)
-      (inj₂ (u∈S , v∈S)) → inj₁ (conv u v w u∈S v∈S u≺v v≺w)
+--   c : Convex S → Convex (S ′)
+--   c conv u v w u∈S′ w∈S′ u≺v v≺w =
+--     let u≺w = ≺-trans u≺v v≺w
+--     in S′-sameLen u∈S′ w∈S′ (u≺w .proj₁) |> λ where
+--       (inj₁ u≡w) → ⊥-elim (≺-irrefl u≡w u≺w)
+--       (inj₂ (u∈S , v∈S)) → inj₁ (conv u v w u∈S v∈S u≺v v≺w)
 
-  max : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ w ] w ∈ L[ S ]
-  max = {!!}
+--   max : ∀ n → ∄[ u ] u ∈ S × ∣ u ∣ ≡ n → ∃[ w ] w ∈ L[ S ]
+--   max = {!!}
 
-  d : ∀ n → (∀ u → ∣ u ∣ ≡ n → u ∉ S) → ∀ α β → IsPath α S → IsPath β S → α ≈ β
-  d = {!!}
+--   d : ∀ n → (∀ u → ∣ u ∣ ≡ n → u ∉ S) → ∀ α β → IsPath α S → IsPath β S → α ≈ β
+--   d = {!!}
