@@ -225,10 +225,10 @@ Coconvex A = Convex (∁ A)
 -- Section 25.3 Weak König Lemma
 
 WKL : (ℓ : Level) → Set (Level.suc ℓ)
-WKL ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ α ] IsPath α S
+WKL ℓ = (S : SFBS ℓ) → S ∈ Infinite ∩ IsTree → ∃[ α ] IsPath α S
 
-WKL' : (ℓ : Level) → Set (Level.suc ℓ)
-WKL' ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ b ] Infinite (S ∘ (b ∷_))
+WKL′ : (ℓ : Level) → Set (Level.suc ℓ)
+WKL′ ℓ = (S : SFBS ℓ) → S ∈ Infinite ∩ IsTree → ∃[ b ] Infinite (S ∘ (b ∷_))
 
 ∣resIBS∣ : ∀ α n → ∣ resIBS α n ∣ ≡ n
 ∣resIBS∣ α 0 = refl
@@ -237,20 +237,30 @@ WKL' ℓ = (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → ∃[ b ] Infinite (S
 Path⇒Inf : ∀ {ℓ} (S : SFBS ℓ) α → IsPath α S → Infinite S
 Path⇒Inf S α isPath n = resIBS α n , isPath n , ∣resIBS∣ α n
 
-eqv : ∀ {ℓ} → WKL ℓ ⇔ WKL' ℓ
-eqv {ℓ} = mk⇔ a→b b→a
+′-⇔ : ∀ {ℓ} → WKL ℓ ⇔ WKL′ ℓ
+′-⇔ {ℓ} = mk⇔ a→b b→a
   where
-    a→b : WKL ℓ → WKL' ℓ
+    a→b : WKL ℓ → WKL′ ℓ
     a→b wkl S infTree =
       let α , isPath = wkl S infTree
       in α .Stream.head ,
         Path⇒Inf (S ∘ (α .Stream.head ∷_)) (α .Stream.tail) (isPath ∘ ℕ.suc)
 
-    path : WKL' ℓ → (S : SFBS ℓ) → S ∈ IsTree ∩ Infinite → IBS
-    path wkl' S infTree = {!!}
+    path : WKL′ ℓ → (S : SFBS ℓ) → S ∈ Infinite ∩ IsTree → IBS
+    path wkl' S infTree .Stream.head = wkl' S infTree .proj₁
+    path wkl' S infTree@(inf , dec , clRes) .Stream.tail =
+      let b , Sb-inf = wkl' S infTree
+      in path wkl' (S ∘ (b ∷_)) (Sb-inf , dec ∘ (b ∷_) , λ u n .n≤∣u∣ → clRes (b ∷ u) (ℕ.suc n) (s≤s n≤∣u∣))
+
+    path-IsPath : ∀ wkl' S infTree → IsPath (path wkl' S infTree) S
+    path-IsPath wkl' S (inf , _) 0 with inf 0
+    ... | ϕ , ϕ∈S , _ = ϕ∈S
+    path-IsPath wkl' S infTree@(inf , dec , clRes) (suc n) =
+      let b , Sb-inf = wkl' S infTree
+      in path-IsPath wkl' (S ∘ (b ∷_)) (Sb-inf , dec ∘ (b ∷_) , λ u n .n≤∣u∣ → clRes (b ∷ u) (ℕ.suc n) (s≤s n≤∣u∣)) n
     
-    b→a : WKL' ℓ → WKL ℓ
-    b→a wkl' S infTree = {!!}
+    b→a : WKL′ ℓ → WKL ℓ
+    b→a wkl' S infTree = path wkl' S infTree , path-IsPath wkl' S infTree
 
 -- decFixLen : {A : SFBS ℓ} → Detachable A → ∀ n → Dec (∃[ u ] u ∈ A × ∣ u ∣ ≡ n)
 -- decFixLen dec 0 with dec ϕ
